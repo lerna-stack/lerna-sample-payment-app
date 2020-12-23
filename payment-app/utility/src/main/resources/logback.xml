@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="1800 seconds">
+
+    <if condition='property("jp.co.tis.lerna.payment.server-mode").equals("DEV")'>
+        <then>
+            <include resource="logback-dev.xml"/>
+        </then>
+        <else>
+            <include resource="logback-prod.xml"/>
+        </else>
+    </if>
+
+</configuration>

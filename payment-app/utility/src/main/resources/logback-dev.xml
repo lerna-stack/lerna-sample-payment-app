@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE logback>
+<included>
+    <contextName>${HOSTNAME}</contextName>
+    <!--bind customization Log converter-->
+    <conversionRule conversionWord="msg" converterClass="lerna.log.logback.converter.OneLineEventConverter" />
+    <!-- DEVモードならスタックトレースは見やすさのため複数行で出力する -->
+    <!-- <conversionRule conversionWord="xEx" converterClass="lerna.log.logback.converter.OneLineExtendedStackTraceConverter" /> -->
+
+    <property name="msg_format" value="%date{yyyy-MM-dd.HH:mm:ss.SSS}\t%contextName\t%level\t%logger\t%X{sourceThread:--}\t%X{akkaSource:--}\t%X{traceId:--}\t%X{tenantId:--}\t%msg%n%xEx%nopex%n"/>
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>${msg_format}</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <!-- print out log file into project root directory-->
+        <file>../../log/application.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- rollover daily -->
+            <fileNamePattern>../../log/application.log-%d{yyyy-MM-dd}.log.gz
+            </fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${msg_format}</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="FILE_PER_TENANT" class="ch.qos.logback.classic.sift.SiftingAppender">
+        <discriminator >
+            <key>tenantId</key>
+            <defaultValue>system</defaultValue>
+        </discriminator>
+        <sift>
+            <appender name="FILE-${tenantId}" class="ch.qos.logback.core.rolling.RollingFileAppender">
+                <!-- print out log file into project root directory-->
+                <file>../../log/application-${tenantId}.log</file>
+                <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                    <!-- rollover daily -->
+                    <fileNamePattern>../../log/application-${tenantId}.log-%d{yyyy-MM-dd}.log.gz
+                    </fileNamePattern>
+                    <maxHistory>2</maxHistory>
+                </rollingPolicy>
+                <encoder>
+                    <pattern>${msg_format}</pattern>
+                </encoder>
+            </appender>
+        </sift>
+    </appender>
+
+    <appender name="STDOUT_SLICK_SQL" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>${msg_format}</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="jp.co.tis.lerna.payment" level="debug"/>
+    <logger name="akka" level="${akka.log.level:-info}"/>
+    <logger name="slick" level="${slick.log.level:-info}" additivity="false"/>
+    <logger name="slick.jdbc.JdbcBackend.statement" level="${logging.sql:-INHERITED}">
+        <appender-ref ref="STDOUT_SLICK_SQL"/>
+    </logger>
+    <logger name="slick.jdbc.JdbcBackend.parameter" level="${logging.sql:-INHERITED}">
+        <appender-ref ref="STDOUT_SLICK_SQL"/>
+    </logger>
+    <logger name="slick.jdbc.StatementInvoker.result" level="${logging.sql:-INHERITED}">
+        <appender-ref ref="STDOUT_SLICK_SQL"/>
+    </logger>
+
+
+    <root level="info">
+        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="FILE"/>
+        <appender-ref ref="FILE_PER_TENANT"/>
+    </root>
+</included>
+

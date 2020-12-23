@@ -1,0 +1,67 @@
+@startuml
+
+[Presentation] --> [ReadModel]
+[Presentation] --> [Adapter]
+[Gateway] --> [Adapter]
+
+[Adapter] <-- [Application]
+
+[Entrypoint]
+
+[Utility]
+
+[Example]
+
+[Application] --> [ReadModel]
+
+note left of [Presentation]
+  REST API を実装するプロジェクト
+
+  Akka HTTP Server API で実装
+end note
+
+note left of [ReadModel]
+  Slick のテーブル定義など
+  RDBMS にアクセスする部品を
+  置くプロジェクト
+end note
+
+note bottom of [Entrypoint]
+  Main クラスを配置し、
+  DI の定義などを行う
+
+  全プロジェクトに依存する
+end note
+
+note bottom of [Utility]
+  業務に依存しないユーティリティなどを
+  実装するプロジェクト
+
+  全プロジェクトから依存される
+end note
+[Example]
+
+note top of [Example]
+  実装サンプルを配置するプロジェクト
+end note
+
+note right of [Adapter]
+  Gateway と Application の
+  インターフェイス（トレイト）と
+  DTO（case class）を実装するプロジェクト
+end note
+
+note right of [Gateway]
+  外部システムとのやりとりを
+  実装するプロジェクト
+
+  Akka HTTP Client API で実装
+end note
+
+note right of [Application]
+  業務ロジックを書くプロジェクト
+
+  WriteModel の Actor などはここに
+end note
+
+@enduml
