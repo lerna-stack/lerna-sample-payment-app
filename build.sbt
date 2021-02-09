@@ -104,7 +104,6 @@ lazy val `payment-app` = (project in file("."))
     bashScriptExtraDefines ++= Seq(
       s"""addJava "-Djp.co.tis.lerna.payment.presentation.versions.version=${version.value}"""",
       s"""addJava "-Djp.co.tis.lerna.payment.presentation.versions.commit-hash=${fetchGitCommitHash.value}"""",
-      s"""addJava "-Dakka.cluster.downing-provider-class=com.lightbend.akka.sbr.SplitBrainResolverProvider"""",
     ),
     maintainerScripts in Rpm ++= {
       import RpmConstants._
