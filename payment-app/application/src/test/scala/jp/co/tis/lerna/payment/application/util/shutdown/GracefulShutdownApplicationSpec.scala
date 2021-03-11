@@ -5,7 +5,6 @@ import akka.cluster.Cluster
 import akka.cluster.sharding.{ ClusterSharding, ClusterShardingSettings, ShardRegion }
 import akka.testkit.TestKit
 import jp.co.tis.lerna.payment.adapter.util.shutdown.GracefulShutdownApplication
-import jp.co.tis.lerna.payment.application.readmodelupdater.{ ReadModelUpdater, ReadModelUpdaterSingletonManager }
 import jp.co.tis.lerna.payment.utility.scalatest.StandardSpec
 import lerna.testkit.airframe.DISessionSupport
 import org.scalatest.concurrent.{ Eventually, ScalaFutures }
@@ -33,12 +32,6 @@ object GracefulShutdownApplicationSpec {
       extractShardId = extractShardId,
     )
   }
-
-  private class ReadModelUpdaterSingletonManagerMock(
-      val system: ActorSystem,
-  ) extends ReadModelUpdaterSingletonManager {
-    override protected def readModelUpdaters: Seq[ReadModelUpdater] = ???
-  }
 }
 
 // Lint回避のため
@@ -63,7 +56,6 @@ class GracefulShutdownApplicationSpec
   override val diDesign: Design = newDesign
     .bind[ActorSystem].toInstance(system)
     .bind[GracefulShutdownApplication].to[GracefulShutdownApplicationImpl]
-    .bind[ReadModelUpdaterSingletonManager].to[ReadModelUpdaterSingletonManagerMock]
 
   private val gracefulShutdownApplication = diSession.build[GracefulShutdownApplication]
 

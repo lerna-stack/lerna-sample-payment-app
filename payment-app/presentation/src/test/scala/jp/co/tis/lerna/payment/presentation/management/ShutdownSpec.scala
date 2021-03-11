@@ -37,14 +37,6 @@ object ShutdownSpec {
     override def requestGracefulShutdownShardRegion(): Unit = {
       // do nothing
     }
-
-    /** ReadModelUpdaterSupervisorを Shutdown の準備させる<br>
-      * ※ 非同期に shutdown の準備されるので、呼び出しが完了した時点で shutdownの準備完了ではない
-      */
-    override def requestShutdownReadyReadModelUpdaterSupervisor(): Future[Any] = {
-      // do nothing
-      Future.successful(Done)
-    }
   }
 }
 

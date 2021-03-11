@@ -4,31 +4,111 @@ import java.sql.Timestamp
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 
+import akka.Done
+import akka.actor.ActorSystem
+import akka.projection.eventsourced.EventEnvelope
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model._
+import jp.co.tis.lerna.payment.adapter.notification.HouseMoneySettlementNotification
 import jp.co.tis.lerna.payment.adapter.notification.util.model.{
   HouseMoneySettlementNotificationRequest,
+  NotificationFailure,
   NotificationRequest,
+  NotificationResponse,
+  NotificationSuccess,
 }
 import jp.co.tis.lerna.payment.adapter.wallet.{ CustomerId, WalletId }
 import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor._
 import jp.co.tis.lerna.payment.application.readmodelupdater.salesdetail.{
   EventPersistenceInfo,
+  HasSalesDetailDomainEventTag,
   SalesDetailEventHandler,
 }
 import jp.co.tis.lerna.payment.readmodel.constant._
 import jp.co.tis.lerna.payment.readmodel.schema.Tables
 import jp.co.tis.lerna.payment.utility.AppRequestContext
+import jp.co.tis.lerna.payment.utility.tenant.AppTenant
 import lerna.log.AppLogging
 import lerna.util.time.LocalDateTimeFactory
+import lerna.util.trace.TraceId
+import slick.dbio
 
-import scala.concurrent.ExecutionContext
-class ECPaymentIssuingServiceEventHandler(val tables: Tables, val dateTimeFactory: LocalDateTimeFactory)
-    extends SalesDetailEventHandler[ECPaymentIssuingServiceSalesDetailDomainEvent]
+import scala.concurrent.{ ExecutionContext, Future }
+
+object ECPaymentIssuingServiceEventHandler extends HasSalesDetailDomainEventTag {
+  val categoryName: String = "ECHouseMoney"
+}
+
+class ECPaymentIssuingServiceEventHandler(
+    val tables: Tables,
+    val dateTimeFactory: LocalDateTimeFactory,
+    settlementNotification: HouseMoneySettlementNotification,
+)(implicit
+    val tenant: AppTenant,
+    system: ActorSystem,
+) extends SalesDetailEventHandler[ECPaymentIssuingServiceSalesDetailDomainEvent]
     with AppLogging {
+
+  override def categoryName: String = ECPaymentIssuingServiceEventHandler.categoryName
 
   import tables.profile.api._
 
-  override def handle(event: ECPaymentIssuingServiceSalesDetailDomainEvent)(implicit
+  private[this] def notice(
+      notificationRequest: Option[NotificationRequest],
+  )(implicit executionContext: ExecutionContext, traceId: TraceId): Future[NotificationResponse] = {
+    val res = notificationRequest match {
+      case Some(HouseMoneySettlementNotificationRequest(walletSettlementId)) =>
+        settlementNotification.notice(walletSettlementId)
+      case None => Future.successful(NotificationSuccess())
+      case _    => Future.successful(NotificationFailure())
+    }
+
+    res.recover {
+      case _ => NotificationFailure()
+    }
+  }
+
+  override def process(envelope: EventEnvelope[ECPaymentIssuingServiceSalesDetailDomainEvent]): dbio.DBIO[Done] = {
+    val event = envelope.event
+
+    import system.dispatcher
+    implicit val traceId: TraceId = event.traceId
+    implicit val eventPersistenceInfo: EventPersistenceInfo =
+      EventPersistenceInfo(envelope.persistenceId, envelope.sequenceNr)
+
+    for {
+      alreadyUpdated <- checkAlreadyUpdated(envelope)
+      _ <- {
+        if (alreadyUpdated) {
+          DBIO.successful(Done)
+        } else {
+          handle(event)
+            .map { maybeNotificationRequest =>
+              // 通知は非同期で良いので結果を待たない
+              // FIXME: 同時リクエスト数が増えすぎないようにする
+              notice(maybeNotificationRequest)
+              Done
+            }
+            .cleanUp(sendDelayTimeMetricsIfNeeded(_, envelope), keepFailure = true)
+        }
+      }
+    } yield {
+      Done
+    }
+  }
+
+  private def sendDelayTimeMetricsIfNeeded(
+      maybeThrowable: Option[Throwable],
+      envelope: EventEnvelope[_],
+  )(implicit
+      traceId: TraceId,
+  ): DBIO[Done.type] = {
+    if (maybeThrowable.isEmpty) {
+      sendDelayTimeMetrics(envelope.offset)
+    }
+    DBIO.successful(Done)
+  }
+
+  def handle(event: ECPaymentIssuingServiceSalesDetailDomainEvent)(implicit
       executionContext: ExecutionContext,
       eventPersistenceInfo: EventPersistenceInfo,
       appRequestContext: AppRequestContext,

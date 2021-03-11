@@ -10,12 +10,17 @@ import akka.testkit.TestKit
 import com.typesafe.config.{ Config, ConfigFactory }
 import jp.co.tis.lerna.payment.adapter.ecpayment.model.{ OrderId, WalletShopId }
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model._
-import jp.co.tis.lerna.payment.adapter.notification.util.model.HouseMoneySettlementNotificationRequest
+import jp.co.tis.lerna.payment.adapter.notification.util.model.{
+  HouseMoneySettlementNotificationRequest,
+  NotificationResponse,
+  NotificationSuccess,
+}
 import jp.co.tis.lerna.payment.adapter.issuing.model.{
   AcquirerReversalRequestParameter,
   AuthorizationRequestParameter,
   IssuingServiceResponse,
 }
+import jp.co.tis.lerna.payment.adapter.notification.HouseMoneySettlementNotification
 import jp.co.tis.lerna.payment.adapter.util.exception.BusinessException
 import jp.co.tis.lerna.payment.adapter.util.{
   IssuingServiceBadRequestError,
@@ -32,13 +37,15 @@ import jp.co.tis.lerna.payment.readmodel.schema.Tables
 import jp.co.tis.lerna.payment.readmodel.{ JDBCSupport, ReadModelDIDesign }
 import jp.co.tis.lerna.payment.utility.{ AppRequestContext, UtilityDIDesign }
 import jp.co.tis.lerna.payment.utility.scalatest.StandardSpec
-import jp.co.tis.lerna.payment.utility.tenant.Example
+import jp.co.tis.lerna.payment.utility.tenant.{ AppTenant, Example }
 import lerna.testkit.airframe.DISessionSupport
 import lerna.util.time.{ FixedLocalDateTimeFactory, LocalDateTimeFactory }
 import lerna.util.trace.TraceId
 import org.scalatest.Inside
 import org.scalatest.concurrent.ScalaFutures
 import wvlet.airframe.Design
+
+import scala.concurrent.Future
 
 // Lint回避のため
 @SuppressWarnings(
@@ -69,6 +76,16 @@ class ECPaymentIssuingServiceEventHandlerSpec
     .bind[ActorSystem].toInstance(system)
     .bind[Config].toInstance(ConfigFactory.load())
     .bind[LocalDateTimeFactory].toInstance(FixedLocalDateTimeFactory("2019-05-01T11:22:33Z"))
+    .bind[AppTenant].toInstance(tenant)
+    .bind[HouseMoneySettlementNotification].toInstance(new HouseMoneySettlementNotification {
+      override def notice(walletSettlementId: String)(implicit
+          appRequestContext: AppRequestContext,
+      ): Future[NotificationResponse] = {
+        // TODO: mockito を使用して呼び出しチェック
+        // do nothing
+        Future.successful(NotificationSuccess())
+      }
+    })
 
   private val generateUniqueNumber: () => Int = {
     val counter = new AtomicInteger(100)

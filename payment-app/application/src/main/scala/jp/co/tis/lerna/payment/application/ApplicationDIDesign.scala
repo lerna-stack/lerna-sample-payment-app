@@ -6,11 +6,6 @@ import jp.co.tis.lerna.payment.adapter.util.authorization.ClientAuthorizationApp
 import jp.co.tis.lerna.payment.adapter.util.health.HealthCheckApplication
 import jp.co.tis.lerna.payment.adapter.util.shutdown.GracefulShutdownApplication
 import jp.co.tis.lerna.payment.application.ecpayment.issuing._
-import jp.co.tis.lerna.payment.application.readmodelupdater.salesdetail.eventhandler.ECPaymentIssuingServiceEventHandler
-import jp.co.tis.lerna.payment.application.readmodelupdater.{
-  ReadModelUpdaterSingletonManager,
-  ReadModelUpdaterSingletonManagerImpl,
-}
 import jp.co.tis.lerna.payment.application.util.authorization.ClientAuthorizationApplicationImpl
 import jp.co.tis.lerna.payment.application.util.health.HealthCheckApplicationImpl
 import jp.co.tis.lerna.payment.application.util.shutdown.GracefulShutdownApplicationImpl
@@ -36,7 +31,6 @@ trait ApplicationDIDesign {
 
   @SuppressWarnings(Array("lerna.warts.CyclomaticComplexity"))
   val applicationDesign: Design = newDesign
-    .bind[ReadModelUpdaterSingletonManager].to[ReadModelUpdaterSingletonManagerImpl]
     .bind[ClientAuthorizationApplication].to[ClientAuthorizationApplicationImpl]
     .bind[Metrics].toSingletonProvider[ActorSystem] { system =>
       Metrics(system, AppTenant.values.toSet)
@@ -46,7 +40,6 @@ trait ApplicationDIDesign {
     .bind[IssuingServiceECPaymentApplication].to[IssuingServiceECPaymentApplicationImpl]
     .bind[TransactionIdFactory].to[TransactionIdFactoryImpl]
     .bind[PaymentIdFactory].to[PaymentIdFactoryImpl]
-    .bind[ECPaymentIssuingServiceEventHandler].toSingleton
     .bind[HealthCheckApplication].to[HealthCheckApplicationImpl]
     .bind[GracefulShutdownApplication].to[GracefulShutdownApplicationImpl]
 }

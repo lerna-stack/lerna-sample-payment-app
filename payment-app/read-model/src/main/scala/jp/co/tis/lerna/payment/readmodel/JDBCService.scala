@@ -17,6 +17,10 @@ trait JDBCService {
     dbConfigMap(tenant).db
   }
 
+  def dbConfig()(implicit tenant: AppTenant): DatabaseConfig[JdbcProfile] = {
+    dbConfigMap(tenant)
+  }
+
   private[this] val dbConfigMap = AppTenant.values.map { tenant =>
     tenant -> generateDbConfig(tenant)
   }.toMap
