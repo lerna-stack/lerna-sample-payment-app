@@ -34,7 +34,7 @@ jobs:
         run: docker-compose up -d
 
       - name: Run tests
-        run: sbt clean test
+        run: sbt clean test:compile test
 
         # https://www.scala-sbt.org/1.x/docs/GitHub-Actions-with-sbt.html#Caching
       - name: Clean files for caching
