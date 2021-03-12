@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 env:
-  SBT_OPTS: -Dlerna.enable.discipline
+  lerna.enable.discipline: true
 
 jobs:
   test:
