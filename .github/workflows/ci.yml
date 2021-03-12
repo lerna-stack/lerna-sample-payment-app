@@ -27,11 +27,18 @@ jobs:
       - name: Coursier cache
         uses: coursier/cache-action@v5
 
-      - name: Check code format
-        run: sbt scalafmtSbtCheck scalafmtCheckAll
+      # https://github.com/marketplace/actions/docker-layer-caching
+      - name: Pull the latest docker image
+        run: docker-compose pull
+      - name: Docker layer cache
+        uses: satackey/action-docker-layer-caching@v0.0.11
+        continue-on-error: true
 
       - name: Build the docker-compose stack
         run: docker-compose up -d
+
+      - name: Check code format
+        run: sbt scalafmtSbtCheck scalafmtCheckAll
 
       - name: Run tests
         run: sbt clean test:compile test
