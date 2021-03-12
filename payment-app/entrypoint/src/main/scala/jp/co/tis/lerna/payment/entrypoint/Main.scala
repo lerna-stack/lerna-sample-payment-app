@@ -10,6 +10,9 @@ import wvlet.airframe._
 import scala.concurrent.Future
 import scala.util.Failure
 
+// CI may fail when there is a warning such as 'unused import'
+import scala.util.Either
+
 @SuppressWarnings(
   Array(
     "org.wartremover.contrib.warts.MissingOverride",
