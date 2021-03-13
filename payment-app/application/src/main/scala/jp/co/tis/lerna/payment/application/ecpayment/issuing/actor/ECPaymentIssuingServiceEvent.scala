@@ -9,6 +9,7 @@ import jp.co.tis.lerna.payment.adapter.issuing.model.{
   IssuingServiceResponse,
 }
 import jp.co.tis.lerna.payment.adapter.util.exception.BusinessException
+import jp.co.tis.lerna.payment.adapter.wallet.CustomerId
 import jp.co.tis.lerna.payment.application.ecpayment.issuing.IssuingServicePayCredential
 import jp.co.tis.lerna.payment.application.readmodelupdater.salesdetail.model.{
   MultipleResultTransaction,
@@ -21,7 +22,9 @@ sealed trait ECPaymentIssuingServiceEvent
 sealed trait ECPaymentIssuingServiceSalesDetailDomainEvent
     extends SalesDetailDomainEvent
     with MultipleResultTransaction
-    with ECPaymentIssuingServiceEvent
+    with ECPaymentIssuingServiceEvent {
+  def customerId: CustomerId
+}
 
 final case class SettlementAccepted(requestInfo: Settle, systemTime: LocalDateTime)(implicit val traceId: TraceId)
     extends ECPaymentIssuingServiceEvent
@@ -46,7 +49,9 @@ final case class SettlementSuccessConfirmed(
 )(implicit
     val traceId: TraceId,
 ) extends ECPaymentIssuingServiceEvent
-    with ECPaymentIssuingServiceSalesDetailDomainEvent
+    with ECPaymentIssuingServiceSalesDetailDomainEvent {
+  override def customerId: CustomerId = requestInfo.customerId
+}
 
 // 決済要求前に失敗
 // 非同期処理対象外
@@ -66,7 +71,9 @@ final case class SettlementFailureConfirmed(
     systemDate: LocalDateTime,                            // システム日付
 )(implicit val traceId: TraceId)
     extends ECPaymentIssuingServiceEvent
-    with ECPaymentIssuingServiceSalesDetailDomainEvent
+    with ECPaymentIssuingServiceSalesDetailDomainEvent {
+  override def customerId: CustomerId = requestInfo.customerId
+}
 
 final case class CancelAccepted(
     requestInfo: Cancel,          // presentation -> actorのリクエスト
@@ -86,7 +93,9 @@ final case class CancelSuccessConfirmed(
     systemDateTime: LocalDateTime,                                      // システム日時、※決済取消要求時のシステム日時
 )(implicit val traceId: TraceId)
     extends ECPaymentIssuingServiceEvent
-    with ECPaymentIssuingServiceSalesDetailDomainEvent
+    with ECPaymentIssuingServiceSalesDetailDomainEvent {
+  override def customerId: CustomerId = requestInfo.customerId
+}
 
 final case class CancelAborted(
 )(implicit val traceId: TraceId)
@@ -104,4 +113,6 @@ final case class CancelFailureConfirmed(
     systemDateTime: LocalDateTime,                                      // システム日時、※決済取消要求時のシステム日時
 )(implicit val traceId: TraceId)
     extends ECPaymentIssuingServiceEvent
-    with ECPaymentIssuingServiceSalesDetailDomainEvent
+    with ECPaymentIssuingServiceSalesDetailDomainEvent {
+  override def customerId: CustomerId = requestInfo.customerId
+}

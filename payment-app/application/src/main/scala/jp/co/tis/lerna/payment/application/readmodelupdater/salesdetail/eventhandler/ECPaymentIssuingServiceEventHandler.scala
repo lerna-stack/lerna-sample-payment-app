@@ -36,6 +36,8 @@ import scala.concurrent.{ ExecutionContext, Future }
 
 object ECPaymentIssuingServiceEventHandler extends HasSalesDetailDomainEventTag {
   val categoryName: String = "ECHouseMoney"
+
+  override def numberOfTags: Int = 50
 }
 
 class ECPaymentIssuingServiceEventHandler(
@@ -49,6 +51,7 @@ class ECPaymentIssuingServiceEventHandler(
     with AppLogging {
 
   override def categoryName: String = ECPaymentIssuingServiceEventHandler.categoryName
+  override def numberOfTags: Int    = ECPaymentIssuingServiceEventHandler.numberOfTags
 
   import tables.profile.api._
 
@@ -415,5 +418,4 @@ class ECPaymentIssuingServiceEventHandler(
       logicalDeleteFlag = LogicalDeleteFlag.unDeleted,// 論理削除フラグ
     )
   }
-
 }

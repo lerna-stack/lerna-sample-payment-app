@@ -8,8 +8,10 @@ import jp.co.tis.lerna.payment.application.readmodelupdater.tagging.EventToTags
   */
 object SalesDetailEventToTags extends EventToTags {
   override protected def mapping: PartialFunction[Any, Set[String]] = {
-    case _: ECPaymentIssuingServiceSalesDetailDomainEvent =>
-      Set(ECPaymentIssuingServiceEventHandler.domainEventTag)
-
+    case event: ECPaymentIssuingServiceSalesDetailDomainEvent =>
+      val tags        = ECPaymentIssuingServiceEventHandler.domainEventTags
+      val i           = math.abs(event.customerId.value.hashCode % tags.size)
+      val selectedTag = tags(i)
+      Set(selectedTag)
   }
 }
