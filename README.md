@@ -77,7 +77,7 @@ Lernaを使って実装した「決済ゲートウェイ」アプリケーショ
 1. Mock server起動
     - `docker-compose up -d mock`
 1. MariaDB起動
-   - `docker-compose up -d mariadb`
+   - `docker-compose up -d mariadb mariadb2`
 1. コンパイル&テスト実行
    - `sbt clean test:compile test`
 1. アプリ起動
