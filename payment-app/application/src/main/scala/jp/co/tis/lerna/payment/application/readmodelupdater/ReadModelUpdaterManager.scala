@@ -12,7 +12,7 @@ import jp.co.tis.lerna.payment.readmodel.JDBCService
 import jp.co.tis.lerna.payment.utility.tenant.AppTenant
 import wvlet.airframe._
 
-class ReadModelUpdaterSingletonManager(
+class ReadModelUpdaterManager(
     classicSystem: ActorSystem,
     session: Session,
     jdbcService: JDBCService,
@@ -32,8 +32,8 @@ class ReadModelUpdaterSingletonManager(
         )
       }
 
-  /** ReadModelUpdater(Singleton) を起動する
-    * Singleton は Cluster内のどこかに起動し、その中で ReadModelUpdater(Stream)が run する
+  /** ReadModelUpdater を起動する
+    * ShardedDaemonProcess によって Cluster 内で tag をキーとして散実行される
     * すでに起動している状態で呼び出してもOK
     */
   def startReadModelUpdaters(): Unit = {

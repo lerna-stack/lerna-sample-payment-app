@@ -13,7 +13,7 @@ import com.typesafe.config.Config
 import com.typesafe.sslconfig.ssl.SSLConfigFactory
 import javax.net.ssl.{ KeyManager, SSLContext, X509TrustManager }
 import jp.co.tis.lerna.payment.adapter.util.health.HealthCheckApplication
-import jp.co.tis.lerna.payment.application.readmodelupdater.ReadModelUpdaterSingletonManager
+import jp.co.tis.lerna.payment.application.readmodelupdater.ReadModelUpdaterManager
 import jp.co.tis.lerna.payment.presentation.RootRoute
 import jp.co.tis.lerna.payment.presentation.util.directives.rejection.AppRejectionHandler
 import jp.co.tis.lerna.payment.presentation.util.errorhandling.AppExceptionHandler
@@ -32,7 +32,7 @@ class PaymentApp(implicit
     rootRoute: RootRoute,
     metrics: Metrics,
     config: Config,
-    readModelUpdaterSingletonManager: ReadModelUpdaterSingletonManager,
+    readModelUpdaterManager: ReadModelUpdaterManager,
     healthCheck: HealthCheckApplication,
 ) extends AppExceptionHandler
     with AppRejectionHandler {
@@ -45,7 +45,7 @@ class PaymentApp(implicit
         SystemMetrics.startCollecting()
 
         if (!config.getBoolean("jp.co.tis.lerna.payment.rdbms-read-only")) {
-          readModelUpdaterSingletonManager.startReadModelUpdaters()
+          readModelUpdaterManager.startReadModelUpdaters()
         }
         val privateInternetInterface = config.getString("private-internet.http.interface")
         val privateInternetPort      = config.getInt("private-internet.http.port")
