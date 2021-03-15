@@ -31,7 +31,7 @@ lazy val `payment-app` = (project in file("."))
           "-Xlint",
         ),
         scalacOptions ++= sys.env
-          .get("SBT_SCALAC_STRICT_WARNINGS").filter(_ == "true").map(_ => "-Xfatal-warnings").toSeq,
+          .get("lerna.enable.discipline").filter(_ == "true").map(_ => "-Xfatal-warnings").toSeq,
         javaOptions in run ++= distinctJavaOptions(
           sbtJavaOptions, // fork先にはシステムプロパティが引き継がれないため
           Seq(
