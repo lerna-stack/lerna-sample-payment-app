@@ -91,6 +91,10 @@ lazy val `payment-app` = (project in file("."))
         packageMapping(
           (baseDirectory.value / "CHANGELOG.md") -> (defaultLinuxInstallLocation.value + s"/${name.value}" + "/CHANGELOG.md"),
         ),
+        // lerna-terraform でモックサーバを起動するために使用する
+        packageDirectoryAndContentsMapping(
+          (baseDirectory.value / "docker/mock-server") -> (defaultLinuxInstallLocation.value + s"/${name.value}" + "/docker/mock-server"),
+        ),
         // Kamon が起動時に /apl/${name}/native/libsigar-amd64-linux.so を書き込む
         packageTemplateMapping(
           defaultLinuxInstallLocation.value + s"/${name.value}" + "/native",
@@ -104,7 +108,6 @@ lazy val `payment-app` = (project in file("."))
     bashScriptExtraDefines ++= Seq(
       s"""addJava "-Djp.co.tis.lerna.payment.presentation.versions.version=${version.value}"""",
       s"""addJava "-Djp.co.tis.lerna.payment.presentation.versions.commit-hash=${fetchGitCommitHash.value}"""",
-      s"""addJava "-Dakka.cluster.downing-provider-class=com.lightbend.akka.sbr.SplitBrainResolverProvider"""",
     ),
     maintainerScripts in Rpm ++= {
       import RpmConstants._
