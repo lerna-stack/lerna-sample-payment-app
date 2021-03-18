@@ -4,9 +4,10 @@ object Dependencies {
 
   object Versions {
     val lerna                    = "1.0.0"
-    val akka                     = "2.6.8"
+    val akka                     = "2.6.10"
     val akkaHttp                 = "10.1.12"
     val akkaPersistenceCassandra = "1.0.1"
+    val akkaProjection           = "1.1.0"
     val scalaTest                = "3.0.9"
     val airframe                 = "20.9.0"
     val logback                  = "1.2.3"
@@ -37,6 +38,7 @@ object Dependencies {
     val actor            = "com.typesafe.akka" %% "akka-actor"              % Versions.akka
     val stream           = "com.typesafe.akka" %% "akka-stream"             % Versions.akka
     val cluster          = "com.typesafe.akka" %% "akka-cluster"            % Versions.akka
+    val clusterTyped     = "com.typesafe.akka" %% "akka-cluster-typed"      % Versions.akka
     val clusterTools     = "com.typesafe.akka" %% "akka-cluster-tools"      % Versions.akka
     val clusterSharding  = "com.typesafe.akka" %% "akka-cluster-sharding"   % Versions.akka
     val persistence      = "com.typesafe.akka" %% "akka-persistence"        % Versions.akka
@@ -55,6 +57,11 @@ object Dependencies {
   object AkkaPersistenceCassandra {
     val akkaPersistenceCassandra =
       "com.typesafe.akka" %% "akka-persistence-cassandra" % Versions.akkaPersistenceCassandra
+  }
+
+  object AkkaProjection {
+    val eventsourced = "com.lightbend.akka" %% "akka-projection-eventsourced" % Versions.akkaProjection
+    val slick        = "com.lightbend.akka" %% "akka-projection-slick"        % Versions.akkaProjection
   }
 
   object ScalaTest {

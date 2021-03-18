@@ -24,7 +24,6 @@ class Shutdown(
 
           healthCheckApplication.kill()
           gracefulShutdownApplication.requestGracefulShutdownShardRegion()
-          gracefulShutdownApplication.requestShutdownReadyReadModelUpdaterSupervisor()
 
           complete(StatusCodes.Accepted -> "新規処理の受付停止リクエストを受け付けました")
         }

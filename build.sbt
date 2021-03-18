@@ -194,11 +194,14 @@ lazy val `application` = (project in file("payment-app/application"))
       Akka.stream,
       Akka.persistence,
       Akka.cluster,
+      Akka.clusterTyped,
       Akka.clusterTools,
       Akka.clusterSharding,
       Akka.slf4j,
       Akka.persistenceQuery,
       AkkaPersistenceCassandra.akkaPersistenceCassandra,
+      AkkaProjection.eventsourced,
+      AkkaProjection.slick,
       Kryo.kryo,
       SprayJson.sprayJson,
       Akka.testKit          % Test,
@@ -229,6 +232,7 @@ lazy val `utility` = (project in file("payment-app/utility"))
       Lerna.util,
       Lerna.log,
       Airframe.airframe,
+      Akka.slf4j, // Lerna.log が 古い akka-slf4j に依存しているため新しいversionで override
       // Logback and Janino is used for logging, utility has some logging configuration
       Logback.logback,
       Janino.janino,

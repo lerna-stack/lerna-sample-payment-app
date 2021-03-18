@@ -2,7 +2,7 @@ package jp.co.tis.lerna.payment.application.readmodelupdater.salesdetail.model
 
 import lerna.util.trace.TraceId
 
-/** 継承すると [[jp.co.tis.lerna.payment.application.readmodelupdater.salesdetail.SalesDetailReadModelUpdater]] で処理されるようになる
+/** 継承すると [[jp.co.tis.lerna.payment.application.readmodelupdater.salesdetail.SalesDetailEventHandler]] で処理されるようになる
   * ※ [[jp.co.tis.lerna.payment.application.readmodelupdater.tagging.TaggingEventAdapter]] でタグが付与される
   */
 trait SalesDetailDomainEvent {

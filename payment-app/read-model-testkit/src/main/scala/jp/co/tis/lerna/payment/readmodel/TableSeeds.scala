@@ -87,16 +87,6 @@ class TableSeeds private (val tables: Tables) {
     arbitraryValue,
     logicalDeleteFlagAsNotDeleted,
   )
-  lazy val ReadModelUpdaterOffsetRowSeed = tables.ReadModelUpdaterOffsetRow(
-    arbitraryValue,
-    arbitraryValue,
-    arbitraryValue,
-    arbitraryValue,
-    arbitraryValue,
-    arbitraryValue,
-    arbitraryValue,
-    logicalDeleteFlagAsNotDeleted,
-  )
   lazy val SalesDetailRowSeed = tables.SalesDetailRow(
     arbitraryValue,
     arbitraryValue,
