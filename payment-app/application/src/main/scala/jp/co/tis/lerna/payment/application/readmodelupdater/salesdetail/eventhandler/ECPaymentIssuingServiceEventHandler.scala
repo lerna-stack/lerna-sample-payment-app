@@ -89,6 +89,7 @@ class ECPaymentIssuingServiceEventHandler(
               Done
             }
             .cleanUp(sendDelayTimeMetricsIfNeeded(_, envelope), keepFailure = true)
+            .cleanUp(logEventInfoIfFailed(_, envelope), keepFailure = true)
         }
       }
     } yield {
@@ -104,6 +105,23 @@ class ECPaymentIssuingServiceEventHandler(
   ): DBIO[Done.type] = {
     if (maybeThrowable.isEmpty) {
       sendDelayTimeMetrics(envelope.offset)
+    }
+    DBIO.successful(Done)
+  }
+
+  private def logEventInfoIfFailed(
+      maybeThrowable: Option[Throwable],
+      envelope: EventEnvelope[_],
+  )(implicit
+      traceId: TraceId,
+  ): DBIO[Done] = {
+    if (maybeThrowable.nonEmpty) {
+      val message = s"""ReadModelの更新に失敗しました。
+           |persistenceId: ${envelope.persistenceId},
+           |sequenceNr: ${envelope.sequenceNr},
+           |event: ${envelope.event}
+           |""".stripMargin
+      logger.error(message)
     }
     DBIO.successful(Done)
   }
