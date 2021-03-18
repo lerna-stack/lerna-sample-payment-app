@@ -115,13 +115,15 @@ class ECPaymentIssuingServiceEventHandler(
   )(implicit
       traceId: TraceId,
   ): DBIO[Done] = {
-    if (maybeThrowable.nonEmpty) {
-      val message = s"""ReadModelの更新に失敗しました。
-           |persistenceId: ${envelope.persistenceId},
-           |sequenceNr: ${envelope.sequenceNr},
-           |event: ${envelope.event}
-           |""".stripMargin
-      logger.error(message)
+    maybeThrowable match {
+      case None => // do nothing
+      case Some(throwable) =>
+        val message = s"""ReadModelの更新に失敗しました。
+                         |persistenceId: ${envelope.persistenceId},
+                         |sequenceNr: ${envelope.sequenceNr},
+                         |event: ${envelope.event}
+                         |""".stripMargin
+        logger.error(throwable, message)
     }
     DBIO.successful(Done)
   }
