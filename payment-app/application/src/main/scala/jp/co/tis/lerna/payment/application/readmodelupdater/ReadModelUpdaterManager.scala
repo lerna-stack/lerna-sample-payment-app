@@ -1,7 +1,7 @@
 package jp.co.tis.lerna.payment.application.readmodelupdater
 
 import akka.actor.{ typed, ActorSystem }
-import akka.cluster.typed.{ ClusterSingleton, SingletonActor }
+import akka.cluster.sharding.typed.scaladsl.ShardedDaemonProcess
 import akka.projection.eventsourced.scaladsl.EventSourcedProvider
 import akka.projection.slick.SlickProjection
 import akka.projection.{ HandlerRecoveryStrategy, ProjectionBehavior, ProjectionId }
@@ -12,7 +12,7 @@ import jp.co.tis.lerna.payment.readmodel.JDBCService
 import jp.co.tis.lerna.payment.utility.tenant.AppTenant
 import wvlet.airframe._
 
-class ReadModelUpdaterSingletonManager(
+class ReadModelUpdaterManager(
     classicSystem: ActorSystem,
     session: Session,
     jdbcService: JDBCService,
@@ -32,8 +32,8 @@ class ReadModelUpdaterSingletonManager(
         )
       }
 
-  /** ReadModelUpdater(Singleton) を起動する
-    * Singleton は Cluster内のどこかに起動し、その中で ReadModelUpdater(Stream)が run する
+  /** ReadModelUpdater を起動する
+    * ShardedDaemonProcess によって Cluster 内で tag をキーとして散実行される
     * すでに起動している状態で呼び出してもOK
     */
   def startReadModelUpdaters(): Unit = {
@@ -47,27 +47,27 @@ class ReadModelUpdaterSingletonManager(
 
     val readJournalPluginId = s"jp.co.tis.lerna.payment.application.persistence.cassandra.tenants.${tenant.id}.query"
 
-    val sourceProvider = EventSourcedProvider
+    def sourceProvider(tag: String) = EventSourcedProvider
       .eventsByTag[Event](
         system = system,
         readJournalPluginId = readJournalPluginId,
-        tag = eventHandler.domainEventTag,
+        tag = tag,
       )
 
-    val projection = SlickProjection
+    def projection(tag: String) = SlickProjection
       // offset の更新と handler の DBIO が同一トランザクションのため遅い。handler側が冪等ならば、 SlickProjection.atLeastOnce を使用すると良い。
       .exactlyOnce(
-        projectionId = ProjectionId(eventHandler.domainEventTag, "a"),
-        sourceProvider = sourceProvider,
+        projectionId = ProjectionId(eventHandler.domainEventTagPrefix, tag),
+        sourceProvider = sourceProvider(tag),
         jdbcService.dbConfig,
         handler = () => eventHandler,
       ).withRecoveryStrategy(HandlerRecoveryStrategy.skip)
 
-    val singleton = SingletonActor(
-      ProjectionBehavior(projection),
-      name = s"${tenant.id}-${projection.projectionId.id}", // TODO: name重複の可能性に注意
-    ).withStopMessage(ProjectionBehavior.Stop)
-
-    ClusterSingleton(system).init(singleton)
+    ShardedDaemonProcess(system).init[ProjectionBehavior.Command](
+      name = s"${tenant.id}-${eventHandler.domainEventTagPrefix}", // TODO: name重複の可能性に注意
+      numberOfInstances = eventHandler.domainEventTags.size,
+      behaviorFactory = (i: Int) => ProjectionBehavior(projection(eventHandler.domainEventTags(i))),
+      stopMessage = ProjectionBehavior.Stop,
+    )
   }
 }

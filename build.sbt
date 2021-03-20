@@ -197,6 +197,7 @@ lazy val `application` = (project in file("payment-app/application"))
       Akka.clusterTyped,
       Akka.clusterTools,
       Akka.clusterSharding,
+      Akka.clusterShardingTyped,
       Akka.slf4j,
       Akka.persistenceQuery,
       AkkaPersistenceCassandra.akkaPersistenceCassandra,
