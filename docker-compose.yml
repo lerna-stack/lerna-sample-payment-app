@@ -2,7 +2,7 @@ version: '3'
 
 services:
 
-  mariadb:
+  mariadb: &mariadb_base
     image: mariadb:10.5.5
     restart: always
     ports:
@@ -15,6 +15,11 @@ services:
       MYSQL_DATABASE: "PAYMENTAPP"
       MYSQL_USER: "paymentapp"
       MYSQL_PASSWORD: "password"
+
+  mariadb2:
+    <<: *mariadb_base
+    ports:
+      - "${MARIADB2_BIND_IP_PORT:-127.0.0.2:3306}:3306"
 
   cassandra:
     build:
