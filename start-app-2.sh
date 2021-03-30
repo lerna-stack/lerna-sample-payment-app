@@ -3,7 +3,7 @@ set -ex
 
 sbt \
 -Dfork=true \
--Djp.co.tis.lerna.payment.application.persistence.cassandra.default.events-by-tag.first-time-bucket="20191030T10:30" \
+-Djp.co.tis.lerna.payment.application.persistence.cassandra.default.events-by-tag.first-time-bucket="$(date '+%Y%m%dT%H:%M' --utc)" \
 -Dakka.cluster.min-nr-of-members=2 \
 -Dakka.cluster.seed-nodes.0="akka://GatewaySystem@127.0.0.1:25520" \
 -Dakka.cluster.seed-nodes.1="akka://GatewaySystem@127.0.0.2:25520" \
