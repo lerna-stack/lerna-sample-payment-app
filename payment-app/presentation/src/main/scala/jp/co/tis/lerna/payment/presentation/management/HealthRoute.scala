@@ -12,8 +12,8 @@ import scala.util.{ Failure, Success }
   * HAProxy と Keepalived から、アプリのプロセスが生きているかチェックするためのエンドポイント
   */
 class HealthRoute(healthCheck: HealthCheckApplication) extends GenAppRequestContextDirective {
-  def route: Route = extractAppRequestContext { implicit appRequestContext =>
-    pathPrefix("health") {
+  def route: Route = pathPrefix("health") {
+    extractAppRequestContext { implicit appRequestContext =>
       onComplete(healthCheck.healthy()) {
         case Success(_) =>
           complete(StatusCodes.OK -> "OK")
