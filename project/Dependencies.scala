@@ -44,6 +44,7 @@ object Dependencies {
     val clusterSharding      = "com.typesafe.akka" %% "akka-cluster-sharding"       % Versions.akka
     val clusterShardingTyped = "com.typesafe.akka" %% "akka-cluster-sharding-typed" % Versions.akka
     val persistence          = "com.typesafe.akka" %% "akka-persistence"            % Versions.akka
+    val persistenceTyped     = "com.typesafe.akka" %% "akka-persistence-typed"      % Versions.akka
     val persistenceQuery     = "com.typesafe.akka" %% "akka-persistence-query"      % Versions.akka
     val testKit              = "com.typesafe.akka" %% "akka-testkit"                % Versions.akka
     val streamTestKit        = "com.typesafe.akka" %% "akka-stream-testkit"         % Versions.akka

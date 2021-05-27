@@ -190,6 +190,7 @@ lazy val `application` = (project in file("payment-app/application"))
       Akka.actor,
       Akka.stream,
       Akka.persistence,
+      Akka.persistenceTyped,
       Akka.cluster,
       Akka.clusterTyped,
       Akka.clusterTools,
