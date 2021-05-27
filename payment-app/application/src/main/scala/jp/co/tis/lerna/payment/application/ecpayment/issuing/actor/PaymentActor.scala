@@ -165,7 +165,6 @@ class PaymentActor(
     with MultiTenantShardingPersistenceIdHelper
     with AppActorLogging {
 
-  import PaymentActor.Sharding
   import lerna.util.time.JavaDurationConverters._
 
   // actor(self)が終了していると、context === null となり context.dispatcher を取得できなく Future#map が NPE となる問題対策で、 dispatcher を変数に束縛しておく
@@ -930,16 +929,9 @@ class PaymentActor(
   // actor(self)が終了していると、context === null となり context.system を取得できないので、 system は変数に束縛しておく
   implicit private val system: ActorSystem = context.system
 
-  // ShardRegion の Graceful shutdown 時用
-  // ShardRegion の shutdown 時に ShardRegion に転送されたメッセージは drop される可能性があるため、proxy 経由とすることで drop を回避する
-  // ShardRegionProxy ではなく ShardRegion 宛に送ると、リトライがあっても ShardRegion が終了していると DeadLetter になる点に注意
-  // ※ Akka 2.5.22 時点での実装依存(SelfDataCenter)
-  private lazy val selfDataCenter   = Cluster(system).settings.SelfDataCenter
-  private lazy val shardRegionProxy = ClusterSharding(system).shardRegionProxy(Sharding.typeName, selfDataCenter)
-
-  protected def sendToSelf(message: InnerCommand): Unit = {
+  private def sendToSelf(message: InnerCommand): Unit = {
     import message.appRequestContext
-    AtLeastOnceDelivery.tellTo(shardRegionProxy, message)
+    AtLeastOnceDelivery.tellTo(self, message)
   }
 
   /** 応答とその他処理
