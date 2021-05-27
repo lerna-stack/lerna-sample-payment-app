@@ -14,7 +14,11 @@ import jp.co.tis.lerna.payment.application.util.tenant.MultiTenantSupportCommand
 import jp.co.tis.lerna.payment.utility.AppRequestContext
 import jp.co.tis.lerna.payment.utility.tenant.AppTenant
 
-sealed trait BusinessCommand extends MultiTenantSupportCommand {
+sealed trait Command
+
+case object StopActor extends Command
+
+sealed trait BusinessCommand extends Command with MultiTenantSupportCommand {
   def clientId: ClientId
   def walletShopId: WalletShopId
   def orderId: OrderId
