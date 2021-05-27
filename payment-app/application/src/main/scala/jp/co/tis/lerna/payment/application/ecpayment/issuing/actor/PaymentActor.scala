@@ -38,7 +38,7 @@ import jp.co.tis.lerna.payment.utility.AppRequestContext
 import lerna.log.AppActorLogging
 import lerna.util.akka
 import lerna.util.akka.AtLeastOnceDelivery.AtLeastOnceDeliveryRequest
-import lerna.util.akka.{ ActorStateBase, AtLeastOnceDelivery, ProcessingTimeout, ReplyTo }
+import lerna.util.akka.{ ActorStateBase, ProcessingTimeout, ReplyTo }
 import lerna.util.lang.Equals._
 import lerna.util.time.LocalDateTimeFactory
 import lerna.util.trace.TraceId
@@ -361,7 +361,7 @@ class PaymentActor(
     }
 
     override def receiveCommand: Receive = {
-      case request @ AtLeastOnceDeliveryRequest(paymentResult: SettlementResult) =>
+      case paymentResult: SettlementResult =>
         import paymentResult.{ appRequestContext, processingContext }
 
         processingTimeoutTimer.cancel()
@@ -390,7 +390,7 @@ class PaymentActor(
                     // 処理が完了の時点で、たまったPay Commandをunstash
                     // 目的：処理中で受けったPay Commandに対し、同じ処理結果を返すため
                     persistAndReply(event, res) {
-                      request.accept()
+                      // do nothing
                     }
                   case errorCode =>
                     // 承認売上送信エラーなし(200) でも エラーコード "00000"以外、エラーにする
@@ -413,7 +413,7 @@ class PaymentActor(
                       )
 
                     persistAndReply(event, Status.Failure(failure)) {
-                      request.accept()
+                      // do nothing
                     }
                 }
 
@@ -429,7 +429,7 @@ class PaymentActor(
                   ),
                   Status.Failure(businessException),
                 ) {
-                  request.accept()
+                  // do nothing
                 }
             }
 
@@ -443,7 +443,7 @@ class PaymentActor(
               ),
               Status.Failure(businessException),
             ) {
-              request.accept()
+              // do nothing
             }
         }
 
@@ -632,7 +632,7 @@ class PaymentActor(
 
     override def receiveCommand: Receive =
       handleCancelProcessingTimeoutMessage(processingTimeoutMessage) orElse {
-        case request @ AtLeastOnceDeliveryRequest(cancelResult: CancelResult) =>
+        case cancelResult: CancelResult =>
           processingTimeoutTimer.cancel()
           import cancelResult.{ appRequestContext, processingContext }
           cancelResult.result match {
@@ -658,7 +658,7 @@ class PaymentActor(
                       )
 
                       persistAndReply(event, res) {
-                        request.accept()
+                        // do nothing
                       }
 
                     case "TW005" => // 取消対象取引が既に取消済
@@ -680,7 +680,7 @@ class PaymentActor(
                       val message = IssuingServiceAlreadyCanceled()
                       logger.debug(s"${message.messageId}: ${message.messageContent}")
                       persistAndReply(event, Status.Failure(new BusinessException(message))) {
-                        request.accept()
+                        // do nothing
                       }
 
                     case errorCode =>
@@ -704,7 +704,7 @@ class PaymentActor(
                           systemDateTime,
                         )
                       persistAndReply(event, Status.Failure(failure)) {
-                        request.accept()
+                        // do nothing
                       }
                   }
 
@@ -723,7 +723,7 @@ class PaymentActor(
                     )
 
                   persistAndReply(cancelFailedEvent, Status.Failure(businessException)) {
-                    request.accept()
+                    // do nothing
                   }
               }
 
@@ -732,7 +732,7 @@ class PaymentActor(
               val cancelFailedEvent =
                 CancelAborted()
               persistAndReply(cancelFailedEvent, Status.Failure(businessException)) {
-                request.accept()
+                // do nothing
               }
           }
 
@@ -926,12 +926,8 @@ class PaymentActor(
     }
   }
 
-  // actor(self)が終了していると、context === null となり context.system を取得できないので、 system は変数に束縛しておく
-  implicit private val system: ActorSystem = context.system
-
   private def sendToSelf(message: InnerCommand): Unit = {
-    import message.appRequestContext
-    AtLeastOnceDelivery.tellTo(self, message)
+    self ! message
   }
 
   /** 応答とその他処理
