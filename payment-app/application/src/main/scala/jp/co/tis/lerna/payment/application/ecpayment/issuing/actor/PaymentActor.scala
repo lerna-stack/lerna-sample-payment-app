@@ -360,7 +360,7 @@ class PaymentActor(
 
     }
 
-    override def receiveCommand: Receive = {
+    override def receiveCommand: Receive = stashStopActorMessage orElse {
       case paymentResult: SettlementResult =>
         import paymentResult.{ appRequestContext, processingContext }
 
@@ -631,6 +631,7 @@ class PaymentActor(
     }
 
     override def receiveCommand: Receive =
+      stashStopActorMessage orElse
       handleCancelProcessingTimeoutMessage(processingTimeoutMessage) orElse {
         case cancelResult: CancelResult =>
           processingTimeoutTimer.cancel()
@@ -899,6 +900,13 @@ class PaymentActor(
 
   override def receiveRecover: Receive = {
     case event: ECPaymentIssuingServiceEvent => updateState(event)
+  }
+
+  private def stashStopActorMessage: Receive = {
+    case StopActor =>
+      import lerna.util.tenant.TenantComponentLogContext.logContext
+      logger.info(s"[state: $state, receive: StopActor] 処理結果待ちのため終了処理を保留します")
+      stash()
   }
 
   // 未処理のメッセージ
