@@ -14,7 +14,7 @@ import jp.co.tis.lerna.payment.application.util.tenant.MultiTenantSupportCommand
 import jp.co.tis.lerna.payment.utility.AppRequestContext
 import jp.co.tis.lerna.payment.utility.tenant.AppTenant
 
-sealed trait Command extends MultiTenantSupportCommand {
+sealed trait BusinessCommand extends MultiTenantSupportCommand {
   def clientId: ClientId
   def walletShopId: WalletShopId
   def orderId: OrderId
@@ -29,7 +29,7 @@ final case class Settle(
     orderId: OrderId,
     amountTran: AmountTran,
 )(implicit val appRequestContext: AppRequestContext)
-    extends Command
+    extends BusinessCommand
 
 final case class Cancel(
     clientId: ClientId,
@@ -37,9 +37,9 @@ final case class Cancel(
     walletShopId: WalletShopId,
     orderId: OrderId,
 )(implicit val appRequestContext: AppRequestContext)
-    extends Command
+    extends BusinessCommand
 
-private[actor] trait InnerCommand extends Command {
+private[actor] trait InnerBusinessCommand extends BusinessCommand {
   implicit def processingContext: ProcessingContext
 
   implicit override def appRequestContext: AppRequestContext = processingContext.appRequestContext
@@ -60,7 +60,7 @@ final case class SettlementResult(
     ],
 )(implicit
     val processingContext: ProcessingContext,
-) extends InnerCommand
+) extends InnerBusinessCommand
 
 final case class CancelResult(
     result: Either[
@@ -73,4 +73,4 @@ final case class CancelResult(
     ],
 )(implicit
     val processingContext: ProcessingContext,
-) extends InnerCommand
+) extends InnerBusinessCommand

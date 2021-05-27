@@ -66,11 +66,11 @@ object PaymentActor {
     )(implicit
         system: ActorSystem,
     ): ActorRef = {
-      def calculateEntityId(command: Command): EntityId =
+      def calculateEntityId(command: BusinessCommand): EntityId =
         s"${command.clientId.value}-${command.walletShopId.value}-${command.orderId.value}"
 
       val extractEntityId: ShardRegion.ExtractEntityId = {
-        case request @ AtLeastOnceDeliveryRequest(command: Command) =>
+        case request @ AtLeastOnceDeliveryRequest(command: BusinessCommand) =>
           val entityId = MultiTenantShardingSupport.tenantSupportEntityId(command, calculateEntityId)
           (entityId, request)
       }
@@ -78,7 +78,7 @@ object PaymentActor {
       val numberOfShards = 100
 
       val extractShardId: ShardRegion.ExtractShardId = {
-        case AtLeastOnceDeliveryRequest(command: Command) =>
+        case AtLeastOnceDeliveryRequest(command: BusinessCommand) =>
           Math.abs(calculateEntityId(command).hashCode % numberOfShards).toString
       }
 
@@ -932,7 +932,7 @@ class PaymentActor(
     }
   }
 
-  private def sendToSelf(message: InnerCommand): Unit = {
+  private def sendToSelf(message: InnerBusinessCommand): Unit = {
     self ! message
   }
 
