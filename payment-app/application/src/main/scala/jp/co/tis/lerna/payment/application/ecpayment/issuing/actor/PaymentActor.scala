@@ -1,9 +1,11 @@
 package jp.co.tis.lerna.payment.application.ecpayment.issuing.actor
 
-import akka.actor.{ ActorRef, ActorSystem, Cancellable, Props, ReceiveTimeout }
-import akka.cluster.Cluster
-import akka.cluster.sharding.{ ClusterSharding, ClusterShardingSettings, ShardRegion }
-import akka.persistence.PersistentActor
+import akka.actor.typed.scaladsl.{ ActorContext, Behaviors, TimerScheduler }
+import akka.actor.typed.{ ActorRef, ActorSystem }
+import akka.cluster.sharding.typed.scaladsl.{ ClusterSharding, Entity, EntityContext, EntityTypeKey }
+import akka.cluster.sharding.typed.{ HashCodeMessageExtractor, ShardingEnvelope }
+import akka.persistence.typed.PersistenceId
+import akka.persistence.typed.scaladsl.{ Effect, EventSourcedBehavior }
 import com.typesafe.config.Config
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model._
 import jp.co.tis.lerna.payment.adapter.ecpayment.model.WalletShopId
@@ -22,36 +24,27 @@ import jp.co.tis.lerna.payment.application.ecpayment.issuing.{
   PaymentIdFactory,
   TransactionIdFactory,
 }
-import jp.co.tis.lerna.payment.application.util.persistence.actor.MultiTenantShardingPersistenceIdHelper
-import jp.co.tis.lerna.payment.application.util.tenant.actor.{
-  MultiTenantPersistentSupport,
-  MultiTenantShardingSupport,
-}
 import jp.co.tis.lerna.payment.readmodel.JDBCService
 import jp.co.tis.lerna.payment.readmodel.constant.{ LogicalDeleteFlag, ServiceRelationForeignKeyType }
 import jp.co.tis.lerna.payment.readmodel.schema.Tables
 import jp.co.tis.lerna.payment.utility.AppRequestContext
-import lerna.log.AppActorLogging
-import lerna.util.akka
-import lerna.util.akka.AtLeastOnceDelivery.AtLeastOnceDeliveryRequest
-import lerna.util.akka.{ ActorStateBase, ProcessingTimeout, ReplyTo }
+import jp.co.tis.lerna.payment.utility.tenant.{ AppTenant, Example }
+import lerna.log.{ AppLogger, AppTypedActorLogging }
 import lerna.util.lang.Equals._
 import lerna.util.time.LocalDateTimeFactory
 import lerna.util.trace.TraceId
 
 import java.time
 import java.time.LocalDateTime
+import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.{ Failure, Success }
 
 /** アクターのコンパニオンオブジェクト
   */
-object PaymentActor {
+object PaymentActor extends AppTypedActorLogging {
 
   object Sharding {
-
-    val typeName: String = ActorPrefix.Ec.houseMoney
 
     def startClusterSharding(
         config: Config,
@@ -62,78 +55,43 @@ object PaymentActor {
         transactionIdFactory: TransactionIdFactory,
         paymentIdFactory: PaymentIdFactory,
     )(implicit
-        system: ActorSystem,
-    ): ActorRef = {
-      val extractEntityId: ShardRegion.ExtractEntityId = {
-        case request @ AtLeastOnceDeliveryRequest(command: BusinessCommand) =>
-          val entityId = MultiTenantShardingSupport.tenantSupportEntityId[BusinessCommand](command, _.entityId)
-          (entityId, request)
-      }
-
+        system: ActorSystem[Nothing],
+    ): ActorRef[ShardingEnvelope[Command]] = {
       val numberOfShards = 100
 
-      val extractShardId: ShardRegion.ExtractShardId = {
-        case AtLeastOnceDeliveryRequest(command: BusinessCommand) =>
-          Math.abs(command.entityId.hashCode % numberOfShards).toString
-      }
+      val clusterSharding = ClusterSharding(system)
 
-      val clusterSharding         = ClusterSharding(system)
-      val clusterShardingSettings = ClusterShardingSettings(system)
+      val shardRegion: ActorRef[ShardingEnvelope[Command]] =
+        clusterSharding.init(
+          Entity(EntityTypeKey[Command](ActorPrefix.Ec.houseMoney))(createBehavior = entityContext => {
+            Behaviors.setup(context => {
+              Behaviors.withTimers(timers => {
+                withLogger(logger => {
+                  val actor = new PaymentActor(
+                    config,
+                    gateway,
+                    jdbcService,
+                    tables,
+                    dateTimeFactory,
+                    transactionIdFactory,
+                    paymentIdFactory,
+                    context,
+                    timers,
+                    entityContext,
+                    logger,
+                  )
+                  actor.eventSourcedBehavior()
+                })
+              })
+            })
+          })
+            .withMessageExtractor(new HashCodeMessageExtractor(numberOfShards))
+            .withStopMessage(StopActor),
+        )
 
-      clusterSharding.start(
-        typeName = typeName,
-        entityProps = PaymentActor
-          .props(
-            config,
-            gateway,
-            jdbcService,
-            tables,
-            dateTimeFactory,
-            transactionIdFactory,
-            paymentIdFactory,
-          ),
-        settings = clusterShardingSettings,
-        extractEntityId = extractEntityId,
-        extractShardId = extractShardId,
-        allocationStrategy = clusterSharding.defaultShardAllocationStrategy(clusterShardingSettings),
-        handOffStopMessage = StopActor,
-      )
-
-      // ShardRegion の Graceful shutdown 時用
-      // ShardRegion の shutdown 時に ShardRegion に転送されたメッセージは drop される可能性があるため、proxy 経由とすることで drop を回避する
-      // ShardRegionProxy ではなく ShardRegion 宛に送ると、リトライがあっても ShardRegion が終了していると DeadLetter になる点に注意
-      // ※ Akka 2.5.22 時点での実装依存(SelfDataCenter)
-      ClusterSharding(system).startProxy(
-        typeName = typeName,
-        role = None,
-        dataCenter = Option(Cluster(system).settings.SelfDataCenter),
-        extractEntityId = extractEntityId,
-        extractShardId = extractShardId,
-      )
+      shardRegion
     }
   }
-
-  def props(
-      config: Config,
-      paymentGateway: IssuingServiceGateway,
-      jdbcService: JDBCService,
-      tables: Tables,
-      dateTimeFactory: LocalDateTimeFactory,
-      transactionIdFactory: TransactionIdFactory,
-      paymentIdFactory: PaymentIdFactory,
-  ): Props =
-    Props(
-      new PaymentActor(
-        config,
-        paymentGateway,
-        jdbcService,
-        tables,
-        dateTimeFactory,
-        transactionIdFactory,
-        paymentIdFactory,
-      ),
-    )
-
 }
 
 /** アクタークラス
@@ -154,76 +112,83 @@ class PaymentActor(
     dateTimeFactory: LocalDateTimeFactory,
     transactionIdFactory: TransactionIdFactory,
     paymentIdFactory: PaymentIdFactory,
-) extends PersistentActor
-    with MultiTenantPersistentSupport
-    with MultiTenantShardingSupport
-    with MultiTenantShardingPersistenceIdHelper
-    with AppActorLogging {
+    context: ActorContext[Command],
+    timers: TimerScheduler[Command],
+    entityContext: EntityContext[Command],
+    logger: AppLogger,
+) {
 
+  private implicit val tenant: AppTenant = Example // TODO: マルチテナント対応
+
+  import context.executionContext
   import lerna.util.time.JavaDurationConverters._
-
-  // actor(self)が終了していると、context === null となり context.dispatcher を取得できなく Future#map が NPE となる問題対策で、 dispatcher を変数に束縛しておく
-  implicit private val dispatcher: ExecutionContext = context.dispatcher
-
-  override def persistenceIdPrefix: String = ActorPrefix.Ec.houseMoney
 
   val receiveTimeout: time.Duration =
     context.system.settings.config
       .getDuration("jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.receive-timeout")
 
-  context.setReceiveTimeout(receiveTimeout.asScala)
+  context.setReceiveTimeout(receiveTimeout.asScala, ReceiveTimeout)
 
   val askTimeout: FiniteDuration = context.system.settings.config
     .getDuration("jp.co.tis.lerna.payment.application.ecpayment.issuing.payment-timeout").asScala
 
   private val errCodeOk = "00000"
 
-  /** 状態遷移
-    *
-    * @param event 遷移先イベント
-    */
-  @SuppressWarnings(Array("lerna.warts.CyclomaticComplexity"))
-  private def updateState(event: ECPaymentIssuingServiceEvent): Unit = {
-    state = state.updated.lift.apply(event).getOrElse {
-      implicit val appRequestContext: AppRequestContext = AppRequestContext(TraceId.unknown, tenant)
-      logger.error("Unexpected event processed: {}", event)
-      state
-    }
-    context.become(state.receiveCommand)
+  def eventSourcedBehavior(): EventSourcedBehavior[Command, ECPaymentIssuingServiceEvent, State] = {
+    val persistenceId =
+      PersistenceId.of(entityContext.entityTypeKey.name, entityContext.entityId) // TODO: マルチテナント対応
+
+    EventSourcedBehavior[Command, ECPaymentIssuingServiceEvent, State](
+      persistenceId = persistenceId,
+      emptyState = WaitingForRequest(),
+      commandHandler = (state, command) => state.applyCommand(command),
+      eventHandler = (state, event) => state.applyEvent(event),
+    )
+      .withJournalPluginId {
+        val pluginIdPrefix = config.getString("jp.co.tis.lerna.payment.application.persistence.plugin-id-prefix")
+        s"${pluginIdPrefix}.tenants.${tenant.id}.journal"
+      }
+      .withSnapshotPluginId("akka.persistence.no-snapshot-store")
   }
-  @SuppressWarnings(Array("org.wartremover.warts.Var"))
-  private var state: State = WaitingForRequest()
 
-  // 初期振る舞いイベントハンドラー
-  override def receiveCommand: Receive = state.receiveCommand
+  // type alias to reduce boilerplate
+  type ReplyEffect = akka.persistence.typed.scaladsl.ReplyEffect[ECPaymentIssuingServiceEvent, State]
 
-  sealed trait State extends ActorStateBase[ECPaymentIssuingServiceEvent, State]
+  // State
+  sealed trait State {
+    def applyEvent(event: ECPaymentIssuingServiceEvent): State
+    def applyCommand(cmd: Command): ReplyEffect
+  }
 
   case class WaitingForRequest() extends State {
-    override def updated: EventHandler = {
+    override def applyEvent(event: ECPaymentIssuingServiceEvent): State = event match {
       case event: SettlementAccepted =>
         import event.traceId
 
         val processingTimeoutMessage: ProcessingTimeout =
           ProcessingTimeout(event.systemTime, askTimeout, context.system.settings.config)
-        val processingTimeoutTimer: Cancellable = context.system.scheduler
-          .scheduleOnce(
-            delay = processingTimeoutMessage.timeLeft(dateTimeFactory),
-            receiver = self,
-            message = processingTimeoutMessage,
-          )
+
+        timers.startSingleTimer(
+          msg = processingTimeoutMessage,
+          delay = processingTimeoutMessage.timeLeft(dateTimeFactory),
+        )
 
         Settling(
           event.requestInfo,
           event.systemTime,
           processingTimeoutMessage,
-          processingTimeoutTimer,
         )
+
+      case _ =>
+        throw new IllegalArgumentException(
+          s"この state(${this.getClass.getName}) では event(${event.getClass.getName}) は作成されない",
+        )
+
     }
 
-    override def receiveCommand: Receive = {
-      case request @ AtLeastOnceDeliveryRequest(cancelRequest: Cancel) =>
-        request.accept()
+    override def applyCommand(cmd: Command): ReplyEffect = cmd match {
+      case cancelRequest: Cancel =>
+        cancelRequest.accept()
 
         import cancelRequest.appRequestContext
         val msg = NotFound("決済情報")
@@ -231,11 +196,11 @@ class PaymentActor(
           s"${msg.messageId} ${msg.messageContent} Cancel request id ${cancelRequest.walletShopId.value} is not found!",
         )
         replyAndStopSelf(
-          sender,
+          cancelRequest.replyTo,
           SettlementFailureResponse(msg),
         )
 
-      case request @ AtLeastOnceDeliveryRequest(payRequest: Settle) =>
+      case payRequest: Settle =>
         import payRequest.appRequestContext
         logger.debug(s"IssuingService : $payRequest")
 
@@ -247,28 +212,33 @@ class PaymentActor(
             clientId = payRequest.clientId,
             walletShopId = payRequest.walletShopId,
             orderId = payRequest.orderId,
-            replyTo = ReplyTo(sender()),
+            replyTo = payRequest.replyTo,
           )
 
-        persist(SettlementAccepted(payRequest, systemTime)) { event =>
-          updateState(event)
+        Effect
+          .persist(SettlementAccepted(payRequest, systemTime))
+          .thenRun((_: State) => {
+            payRequest.accept()
 
-          request.accept()
+            val resultFuture = executePayment(payRequest, systemTime)
 
-          val resultFuture = executePayment(payRequest, systemTime)
+            resultFuture onComplete { triedResult =>
+              val result: Either[
+                OnlineProcessingFailureMessage,
+                (
+                    IssuingServicePayCredential,
+                    AuthorizationRequestParameter,
+                    Either[OnlineProcessingFailureMessage, IssuingServiceResponse],
+                ),
+              ] = triedResult.toEither.left.map(handleException)
+              sendToSelf(SettlementResult(result))
+            }
+          }).thenNoReply()
 
-          resultFuture onComplete { triedResult =>
-            val result: Either[
-              OnlineProcessingFailureMessage,
-              (
-                  IssuingServicePayCredential,
-                  AuthorizationRequestParameter,
-                  Either[OnlineProcessingFailureMessage, IssuingServiceResponse],
-              ),
-            ] = triedResult.toEither.left.map(handleException)
-            sendToSelf(SettlementResult(result))
-          }
-        }
+      case StopActor               => Effect.stop().thenNoReply()
+      case ReceiveTimeout          => handleReceiveTimeout()
+      case _: ProcessingTimeout    => Effect.unhandled.thenNoReply()
+      case _: InnerBusinessCommand => Effect.unhandled.thenNoReply()
     }
   }
 
@@ -325,9 +295,8 @@ class PaymentActor(
       requestInfo: Settle,
       systemTime: LocalDateTime,
       processingTimeoutMessage: ProcessingTimeout,
-      processingTimeoutTimer: Cancellable,
   ) extends State {
-    override def updated: EventHandler = {
+    override def applyEvent(event: ECPaymentIssuingServiceEvent): State = event match {
       // 決済成功
       case event: SettlementSuccessConfirmed =>
         Completed(
@@ -351,13 +320,24 @@ class PaymentActor(
         val message = UnpredictableError()
         Failed(message)
 
+      case _ =>
+        throw new IllegalArgumentException(
+          s"この state(${this.getClass.getName}) では event(${event.getClass.getName}) は作成されない",
+        )
+
     }
 
-    override def receiveCommand: Receive = stashStopActorMessage orElse {
+    @SuppressWarnings(Array("lerna.warts.CyclomaticComplexity"))
+    override def applyCommand(cmd: Command): ReplyEffect = cmd match {
+      case StopActor =>
+        import lerna.util.tenant.TenantComponentLogContext.logContext
+        logger.info(s"[state: $this, receive: StopActor] 処理結果待ちのため終了処理を保留します")
+        Effect.stash()
+
       case paymentResult: SettlementResult =>
         import paymentResult.{ appRequestContext, processingContext }
 
-        processingTimeoutTimer.cancel()
+        timers.cancel(processingTimeoutMessage)
 
         paymentResult.result match {
           case Right((payCredential, req, result)) =>
@@ -439,19 +419,24 @@ class PaymentActor(
             }
         }
 
-      case AtLeastOnceDeliveryRequest(msg: Settle) =>
+      case msg: Settle =>
         import msg.appRequestContext
-        stash()
         logger.info("前回のリクエストが処理中のため一時的に保留(stash)します")
+        Effect.stash()
 
       case `processingTimeoutMessage` =>
         import processingTimeoutMessage.requestContext
         logger.info("処理タイムアウトしました: {}", processingTimeoutMessage)
-        persist(SettlementTimeoutDetected()(requestContext.traceId)) { event =>
-          updateState(event)
-          unstashAll()
-          stopSelfSafely()
-        }
+        Effect
+          .persist(SettlementTimeoutDetected()(requestContext.traceId))
+          .thenRun((_: State) => stopSelfSafely())
+          .thenNoReply()
+          .thenUnstashAll()
+
+      case ReceiveTimeout          => handleReceiveTimeout()
+      case _: ProcessingTimeout    => Effect.unhandled.thenNoReply() // 対にならない timeout
+      case _: InnerBusinessCommand => Effect.unhandled.thenNoReply()
+      case _: Cancel               => Effect.stash()
     }
   }
 
@@ -463,19 +448,18 @@ class PaymentActor(
       originalRequestParameter: AuthorizationRequestParameter,
       saleDateTime: LocalDateTime,
   ) extends State {
-    override def updated: EventHandler = {
+    override def applyEvent(event: ECPaymentIssuingServiceEvent): State = event match {
       // 取消
       case event: CancelAccepted =>
         import event.traceId
 
         val processingTimeoutMessage: ProcessingTimeout =
           ProcessingTimeout(event.systemDateTime, askTimeout, context.system.settings.config)
-        val processingTimeoutTimer: Cancellable = context.system.scheduler
-          .scheduleOnce(
-            delay = processingTimeoutMessage.timeLeft(dateTimeFactory),
-            receiver = self,
-            message = processingTimeoutMessage,
-          )
+
+        timers.startSingleTimer(
+          msg = processingTimeoutMessage,
+          delay = processingTimeoutMessage.timeLeft(dateTimeFactory),
+        )
 
         Canceling(
           event.requestInfo,
@@ -486,19 +470,23 @@ class PaymentActor(
           saleDateTime,
           event.systemDateTime,
           processingTimeoutMessage,
-          processingTimeoutTimer,
+        )
+
+      case _ =>
+        throw new IllegalArgumentException(
+          s"この state(${this.getClass.getName}) では event(${event.getClass.getName}) は作成されない",
         )
     }
 
-    override def receiveCommand: Receive = {
-      case request @ AtLeastOnceDeliveryRequest(msg: Settle) =>
+    override def applyCommand(cmd: Command): ReplyEffect = cmd match {
+      case msg: Settle =>
         import msg.appRequestContext
-        request.accept()
+        msg.accept()
         logger.info("すでに処理済みのため、前回の処理結果を返します(前回とキーが同じリクエストが来ました)")
 
-        replyAndStopSelf(sender(), settlementSuccessResponse)
+        replyAndStopSelf(msg.replyTo, settlementSuccessResponse)
 
-      case request @ AtLeastOnceDeliveryRequest(msg: Cancel) =>
+      case msg: Cancel =>
         import msg.appRequestContext
         // リクエスト直前の時刻をこちらで作成（変数化）
         val systemTime = dateTimeFactory.now()
@@ -508,25 +496,29 @@ class PaymentActor(
             clientId = msg.clientId,
             walletShopId = msg.walletShopId,
             orderId = msg.orderId,
-            replyTo = akka.ReplyTo(sender()),
+            replyTo = msg.replyTo,
           )
 
-        persist(
-          CancelAccepted(
-            msg,
-            systemTime,
-          ),
-        ) { event =>
-          updateState(event)
+        Effect
+          .persist(
+            CancelAccepted(
+              msg,
+              systemTime,
+            ),
+          ).thenRun((_: State) => {
+            msg.accept()
 
-          request.accept()
+            val resultFuture = executeCancel(msg, customerId, originalRequestParameter, systemTime)
+            resultFuture onComplete { triedResult =>
+              val result = triedResult.toEither.left.map(handleException)
+              sendToSelf(CancelResult(result))
+            }
+          }).thenNoReply()
 
-          val resultFuture = executeCancel(msg, customerId, originalRequestParameter, systemTime)
-          resultFuture onComplete { triedResult =>
-            val result = triedResult.toEither.left.map(handleException)
-            sendToSelf(CancelResult(result))
-          }
-        }
+      case StopActor               => Effect.stop().thenNoReply()
+      case ReceiveTimeout          => handleReceiveTimeout()
+      case _: ProcessingTimeout    => Effect.unhandled.thenNoReply()
+      case _: InnerBusinessCommand => Effect.unhandled.thenNoReply()
 
     }
   }
@@ -578,9 +570,8 @@ class PaymentActor(
       saleDateTime: LocalDateTime,                          // 買上日時、※決済要求時のシステム日時
       systemDateTime: LocalDateTime,
       processingTimeoutMessage: ProcessingTimeout,
-      processingTimeoutTimer: Cancellable,
   ) extends State {
-    override def updated: EventHandler = {
+    override def applyEvent(event: ECPaymentIssuingServiceEvent): State = event match {
       // 取消成功
       case event: CancelSuccessConfirmed =>
         Canceled(
@@ -620,148 +611,156 @@ class PaymentActor(
           originalRequest,
           saleDateTime,
         )
+
+      case _ =>
+        throw new IllegalArgumentException(
+          s"この state(${this.getClass.getName}) では event(${event.getClass.getName}) は作成されない",
+        )
     }
 
-    override def receiveCommand: Receive =
-      stashStopActorMessage orElse
-      handleCancelProcessingTimeoutMessage(processingTimeoutMessage) orElse {
-        case cancelResult: CancelResult =>
-          processingTimeoutTimer.cancel()
-          import cancelResult.{ appRequestContext, processingContext }
-          cancelResult.result match {
-            case Right((result, payCredential, acquirerReversalRequestParameter)) =>
-              result match {
-                case Right(response) =>
-                  response.rErrcode match {
-                    case `errCodeOk` => // エラーコード 正常
-                      val res = SettlementSuccessResponse()
-                      logger.debug(
-                        s"status ok: cancelProcessing",
-                      )
-                      val event = CancelSuccessConfirmed(
-                        response,
-                        payCredential,
-                        requestInfo,
-                        res,
-                        paymentResponse.intranid,
-                        saleDateTime,
-                        acquirerReversalRequestParameter,
-                        originalRequest,
-                        systemDateTime,
-                      )
+    @SuppressWarnings(Array("lerna.warts.CyclomaticComplexity"))
+    override def applyCommand(cmd: Command): ReplyEffect = cmd match {
+      case StopActor =>
+        import lerna.util.tenant.TenantComponentLogContext.logContext
+        logger.info(s"[state: $this, receive: StopActor] 処理結果待ちのため終了処理を保留します")
+        Effect.stash()
 
-                      persistAndReply(event, res) {
-                        // do nothing
-                      }
+      case `processingTimeoutMessage` =>
+        import processingTimeoutMessage.requestContext
+        logger.info("処理タイムアウトしました: {}", processingTimeoutMessage)
+        Effect
+          .persist(
+            CancelTimeoutDetected()(requestContext.traceId),
+          )
+          .thenRun((_: State) => stopSelfSafely())
+          .thenNoReply()
+          .thenUnstashAll()
 
-                    case "TW005" => // 取消対象取引が既に取消済
-                      val res = SettlementSuccessResponse()
-                      logger.debug(
-                        s"status payment's already been canceled: cancelProcessing",
-                      )
-                      val event = CancelSuccessConfirmed(
-                        response,
-                        payCredential,
-                        requestInfo,
-                        res,
-                        paymentResponse.intranid,
-                        saleDateTime,
-                        acquirerReversalRequestParameter,
-                        originalRequest,
-                        systemDateTime,
-                      )
-                      val message = IssuingServiceAlreadyCanceled()
-                      logger.debug(s"${message.messageId}: ${message.messageContent}")
-                      persistAndReply(event, SettlementFailureResponse(message)) {
-                        // do nothing
-                      }
-
-                    case errorCode =>
-                      logger.debug(
-                        s"status cancel failed, error code is not 00000: cancelProcessing",
-                      )
-
-                      val message = IssuingServiceServerError("承認取消送信", errorCode)
-                      logger.warn(s"${message.messageId}: ${message.messageContent}")
-                      val event =
-                        CancelFailureConfirmed(
-                          paymentResponse,
-                          requestInfo,
-                          payCredential,
-                          Option(response),
-                          message,
-                          originalRequest,
-                          acquirerReversalRequestParameter,
-                          saleDateTime,
-                          systemDateTime,
-                        )
-                      persistAndReply(event, SettlementFailureResponse(message)) {
-                        // do nothing
-                      }
-                  }
-
-                case Left(message) =>
-                  val cancelFailedEvent =
-                    CancelFailureConfirmed(
-                      paymentResponse,
-                      requestInfo,
+      case cancelResult: CancelResult =>
+        timers.cancel(processingTimeoutMessage)
+        import cancelResult.{ appRequestContext, processingContext }
+        cancelResult.result match {
+          case Right((result, payCredential, acquirerReversalRequestParameter)) =>
+            result match {
+              case Right(response) =>
+                response.rErrcode match {
+                  case `errCodeOk` => // エラーコード 正常
+                    val res = SettlementSuccessResponse()
+                    logger.debug(
+                      s"status ok: cancelProcessing",
+                    )
+                    val event = CancelSuccessConfirmed(
+                      response,
                       payCredential,
-                      None,
-                      message,
-                      originalRequest,
-                      acquirerReversalRequestParameter,
+                      requestInfo,
+                      res,
+                      paymentResponse.intranid,
                       saleDateTime,
+                      acquirerReversalRequestParameter,
+                      originalRequest,
                       systemDateTime,
                     )
 
-                  persistAndReply(cancelFailedEvent, SettlementFailureResponse(message)) {
-                    // do nothing
-                  }
-              }
+                    persistAndReply(event, res) {
+                      // do nothing
+                    }
 
-            case Left(message) =>
-              // 非同期処理対象外
-              val cancelFailedEvent =
-                CancelAborted()
-              persistAndReply(cancelFailedEvent, SettlementFailureResponse(message)) {
-                // do nothing
-              }
-          }
+                  case "TW005" => // 取消対象取引が既に取消済
+                    val res = SettlementSuccessResponse()
+                    logger.debug(
+                      s"status payment's already been canceled: cancelProcessing",
+                    )
+                    val event = CancelSuccessConfirmed(
+                      response,
+                      payCredential,
+                      requestInfo,
+                      res,
+                      paymentResponse.intranid,
+                      saleDateTime,
+                      acquirerReversalRequestParameter,
+                      originalRequest,
+                      systemDateTime,
+                    )
+                    val message = IssuingServiceAlreadyCanceled()
+                    logger.debug(s"${message.messageId}: ${message.messageContent}")
+                    persistAndReply(event, SettlementFailureResponse(message)) {
+                      // do nothing
+                    }
 
-        case AtLeastOnceDeliveryRequest(msg: Cancel) =>
-          import msg.appRequestContext
-          stash()
-          logger.info("前回のリクエストが処理中のため一時的に保留(stash)します")
+                  case errorCode =>
+                    logger.debug(
+                      s"status cancel failed, error code is not 00000: cancelProcessing",
+                    )
 
-      }
-  }
+                    val message = IssuingServiceServerError("承認取消送信", errorCode)
+                    logger.warn(s"${message.messageId}: ${message.messageContent}")
+                    val event =
+                      CancelFailureConfirmed(
+                        paymentResponse,
+                        requestInfo,
+                        payCredential,
+                        Option(response),
+                        message,
+                        originalRequest,
+                        acquirerReversalRequestParameter,
+                        saleDateTime,
+                        systemDateTime,
+                      )
+                    persistAndReply(event, SettlementFailureResponse(message)) {
+                      // do nothing
+                    }
+                }
 
-  private def handleCancelProcessingTimeoutMessage(
-      processingTimeoutMessage: ProcessingTimeout,
-  ): Receive = {
-    case `processingTimeoutMessage` =>
-      import processingTimeoutMessage.requestContext
-      logger.info("処理タイムアウトしました: {}", processingTimeoutMessage)
-      persist(
-        CancelTimeoutDetected()(requestContext.traceId),
-      ) { event =>
-        updateState(event)
-        unstashAll()
-        stopSelfSafely()
-      }
+              case Left(message) =>
+                val cancelFailedEvent =
+                  CancelFailureConfirmed(
+                    paymentResponse,
+                    requestInfo,
+                    payCredential,
+                    None,
+                    message,
+                    originalRequest,
+                    acquirerReversalRequestParameter,
+                    saleDateTime,
+                    systemDateTime,
+                  )
+
+                persistAndReply(cancelFailedEvent, SettlementFailureResponse(message)) {
+                  // do nothing
+                }
+            }
+
+          case Left(message) =>
+            // 非同期処理対象外
+            val cancelFailedEvent =
+              CancelAborted()
+            persistAndReply(cancelFailedEvent, SettlementFailureResponse(message)) {
+              // do nothing
+            }
+        }
+
+      case msg: Cancel =>
+        import msg.appRequestContext
+        logger.info("前回のリクエストが処理中のため一時的に保留(stash)します")
+        Effect.stash()
+
+      case ReceiveTimeout          => handleReceiveTimeout()
+      case _: ProcessingTimeout    => Effect.unhandled.thenNoReply() // 対にならない timeout
+      case _: InnerBusinessCommand => Effect.unhandled.thenNoReply()
+      case _: Settle               => Effect.stash()
+    }
   }
 
   // 永続化およびPresentationへの返事
   private def persistAndReply(event: ECPaymentIssuingServiceEvent, msg: SettlementResponse)(afterPersist: => Unit)(
       implicit processingContext: ProcessingContext,
-  ): Unit = {
+  ): ReplyEffect = {
     // 処理が完了の時点で、たまったPay Commandをunstash
     // 目的：処理中で受けったPay Commandに対し、同じ処理結果を返すため
-    persist(event) { e =>
-      updateState(e)
-      afterPersist
-      replyResult(msg)
-    }
+    Effect
+      .persist(event)
+      .thenReply(processingContext.replyTo)((_: State) => msg)
+      .thenUnstashAll()
   }
 
   case class Canceled(
@@ -769,33 +768,59 @@ class PaymentActor(
       customerId: CustomerId,
       cancelResponse: IssuingServiceResponse,
   ) extends State {
-    override def updated: EventHandler = PartialFunction.empty
+    override def applyEvent(event: ECPaymentIssuingServiceEvent): State =
+      throw new IllegalArgumentException(
+        s"この state(${this.getClass.getName}) では event(${event.getClass.getName}) は作成されない",
+      )
 
-    override def receiveCommand: Receive = {
-      case request @ AtLeastOnceDeliveryRequest(msg: Cancel) if msg.customerId === customerId =>
-        import msg.appRequestContext
-        request.accept()
-        logger.info("すでに処理済みのため、前回の処理結果を返します(前回とキーが同じリクエストが来ました)")
+    override def applyCommand(cmd: Command): ReplyEffect = cmd match {
+      case msg: Cancel =>
+        msg.accept()
+        val response: SettlementResponse = if (msg.customerId === customerId) {
+          import msg.appRequestContext
+          logger.info("すでに処理済みのため、前回の処理結果を返します(前回とキーが同じリクエストが来ました)")
+          cancelSuccessResponse
+        } else {
+          SettlementFailureResponse(ForbiddenFailure())
+        }
+        replyAndStopSelf(msg.replyTo, response)
 
-        replyAndStopSelf(sender(), cancelSuccessResponse)
+      case StopActor               => Effect.stop().thenNoReply()
+      case ReceiveTimeout          => handleReceiveTimeout()
+      case _: ProcessingTimeout    => Effect.unhandled.thenNoReply()
+      case _: InnerBusinessCommand => Effect.unhandled.thenNoReply()
+      case command: Settle =>
+        val message = ValidationFailure("walletShopId または orderId が不正です")
+        replyAndStopSelf(command.replyTo, SettlementFailureResponse(message))
     }
   }
 
   case class Failed(
       message: OnlineProcessingFailureMessage,
   ) extends State {
-    override def updated: EventHandler = PartialFunction.empty
+    override def applyEvent(event: ECPaymentIssuingServiceEvent): State =
+      throw new IllegalArgumentException(
+        s"この state(${this.getClass.getName}) では event(${event.getClass.getName}) は作成されない",
+      )
 
-    override def receiveCommand: Receive = {
-      case request @ AtLeastOnceDeliveryRequest(msg: Settle) =>
+    override def applyCommand(cmd: Command): ReplyEffect = cmd match {
+      case msg: Settle =>
         import msg.appRequestContext
-        request.accept()
+        msg.accept()
         logger.info("すでに処理済みのため、前回の処理結果を返します(前回とキーが同じリクエストが来ました)")
 
         logger.info(
           s"status: failed, msg: $msg",
         )
-        replyAndStopSelf(sender(), SettlementFailureResponse(message))
+        replyAndStopSelf(msg.replyTo, SettlementFailureResponse(message))
+
+      case StopActor               => Effect.stop().thenNoReply()
+      case ReceiveTimeout          => handleReceiveTimeout()
+      case _: ProcessingTimeout    => Effect.unhandled.thenNoReply()
+      case _: InnerBusinessCommand => Effect.unhandled.thenNoReply()
+      case command: Cancel =>
+        val message = ValidationFailure("walletShopId または orderId が不正です")
+        replyAndStopSelf(command.replyTo, SettlementFailureResponse(message))
     }
   }
 
@@ -891,61 +916,25 @@ class PaymentActor(
     }
   }
 
-  override def receiveRecover: Receive = {
-    case event: ECPaymentIssuingServiceEvent => updateState(event)
-  }
-
-  private def stashStopActorMessage: Receive = {
-    case StopActor =>
-      import lerna.util.tenant.TenantComponentLogContext.logContext
-      logger.info(s"[state: $state, receive: StopActor] 処理結果待ちのため終了処理を保留します")
-      stash()
-  }
-
-  // 未処理のメッセージ
-  override def unhandled(message: Any): Unit = {
-    message match {
-      case StopActor =>
-        implicit val traceId: TraceId = TraceId.unknown
-        logger.debug(s"state: $state, receive: StopActor")
-        context.stop(self)
-      case request @ AtLeastOnceDeliveryRequest(payRequest: Settle) => // DOS攻撃防止のため
-        request.accept()
-        val msg = ValidationFailure("walletShopId または orderId が不正です")
-        replyAndStopSelf(sender, SettlementFailureResponse(msg))
-      case request @ AtLeastOnceDeliveryRequest(payRequest: Cancel) => // DOS攻撃防止のため
-        request.accept()
-        val msg = ValidationFailure("walletShopId または orderId が不正です")
-        replyAndStopSelf(sender, SettlementFailureResponse(msg))
-      case ReceiveTimeout =>
-        implicit val appRequestContext: AppRequestContext = AppRequestContext(TraceId.unknown, tenant)
-        logger.info("Actorの生成から一定時間経過しました。Actorを停止します。")
-        stopSelfSafely()
-      case _: ProcessingTimeout => // ignore
-      case m =>
-        super.unhandled(m)
-    }
+  private def handleReceiveTimeout(): ReplyEffect = {
+    implicit val appRequestContext: AppRequestContext = AppRequestContext(TraceId.unknown, tenant)
+    logger.info("Actorの生成から一定時間経過しました。Actorを停止します。")
+    stopSelfSafely()
+    Effect.noReply
   }
 
   private def sendToSelf(message: InnerBusinessCommand): Unit = {
-    self ! message
-  }
-
-  /** 応答とその他処理
-    * @param result 応答メッセージ
-    */
-  private def replyResult(result: SettlementResponse)(implicit processingContext: ProcessingContext): Unit = {
-    unstashAll()
-    replyAndStopSelf(processingContext.replyTo.actorRef, result)
+    context.self ! message
   }
 
   // 返事およびアウターストップ
-  private def replyAndStopSelf(replyTo: ActorRef, msg: SettlementResponse): Unit = {
-    replyTo ! msg
-    stopSelfSafely()
+  private def replyAndStopSelf(replyTo: ActorRef[SettlementResponse], msg: SettlementResponse): ReplyEffect = {
+    Effect.none
+      .thenRun((_: State) => stopSelfSafely())
+      .thenReply(replyTo)(_ => msg)
   }
 
   private def stopSelfSafely(): Unit = {
-    context.parent ! ShardRegion.Passivate(stopMessage = StopActor)
+    entityContext.shard ! ClusterSharding.Passivate(context.self)
   }
 }

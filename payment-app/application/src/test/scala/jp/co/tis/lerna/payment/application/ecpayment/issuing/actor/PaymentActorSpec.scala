@@ -1,7 +1,12 @@
 package jp.co.tis.lerna.payment.application.ecpayment.issuing.actor
 
-import akka.actor.{ ActorRef, ActorSystem, Props }
-import akka.testkit.{ ImplicitSender, TestKit }
+import akka.actor.testkit.typed.scaladsl.ActorTestKit
+import akka.actor.typed.ActorRef
+import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.scaladsl.adapter._
+import akka.actor.{ typed, ActorSystem }
+import akka.cluster.sharding.typed.scaladsl.{ EntityContext, EntityTypeKey }
+import akka.testkit.{ ImplicitSender, TestKit, TestProbe }
 import com.typesafe.config.{ Config, ConfigFactory }
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model._
 import jp.co.tis.lerna.payment.adapter.ecpayment.model.{ OrderId, WalletShopId }
@@ -14,6 +19,7 @@ import jp.co.tis.lerna.payment.adapter.issuing.model.{
 import jp.co.tis.lerna.payment.adapter.util._
 import jp.co.tis.lerna.payment.adapter.util.exception.BusinessException
 import jp.co.tis.lerna.payment.adapter.wallet.{ ClientId, CustomerId }
+import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.PaymentActor.withLogger
 import jp.co.tis.lerna.payment.application.ecpayment.issuing.{ PaymentIdFactory, TransactionIdFactory }
 import jp.co.tis.lerna.payment.application.util.tenant.actor.MultiTenantShardingSupportTestHelper
 import jp.co.tis.lerna.payment.readmodel.schema.Tables
@@ -76,6 +82,10 @@ class PaymentActorSpec
     }
   }
 
+  private val replyTo                                          = testActor.toTyped
+  private implicit val typedSystem: typed.ActorSystem[Nothing] = system.toTyped
+  private val typedTestkit                                     = ActorTestKit(typedSystem)
+
   val config: Config                 = diSession.build[Config]
   val dateTime: LocalDateTimeFactory = diSession.build[LocalDateTimeFactory]
 
@@ -105,16 +115,6 @@ class PaymentActorSpec
     }
 
     "初期状態" when {
-
-      "知らないコマンドが送信された" should {
-        val actor = createActor(issuingServiceGatewaySuccess)
-
-        "レスポンスがない" in {
-          actor ! ""
-          expectNoMessage()
-        }
-      }
-
       "決済要求が送信された" when {
         "DBに合うデータがない" should {
           "レスポンス：NotFound" in withJDBC { db =>
@@ -141,7 +141,15 @@ class PaymentActorSpec
             )
 
             val payRequest =
-              Settle(ClientId(5), CustomerId("999"), WalletShopId("123"), OrderId("456"), AmountTran(5))
+              Settle(
+                ClientId(5),
+                CustomerId("999"),
+                WalletShopId("123"),
+                OrderId("456"),
+                AmountTran(5),
+                replyTo,
+                _,
+              )
             val actor = createActor(issuingServiceGatewaySuccess)
 
             AtLeastOnceDelivery.tellTo(actor, payRequest)
@@ -175,7 +183,15 @@ class PaymentActorSpec
               ),
             )
             val payRequest =
-              Settle(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"), AmountTran(5))
+              Settle(
+                ClientId(777),
+                CustomerId("789"),
+                WalletShopId("123"),
+                OrderId("456"),
+                AmountTran(5),
+                replyTo,
+                _,
+              )
             val actor = createActor(issuingServiceGatewaySuccess)
 
             AtLeastOnceDelivery.tellTo(actor, payRequest)
@@ -210,7 +226,15 @@ class PaymentActorSpec
               )
 
               val payRequest =
-                Settle(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("57"), AmountTran(5))
+                Settle(
+                  ClientId(777),
+                  CustomerId("789"),
+                  WalletShopId("123"),
+                  OrderId("57"),
+                  AmountTran(5),
+                  replyTo,
+                  _,
+                )
               val actor = createActor(issuingServiceGatewaySuccess)
 
               AtLeastOnceDelivery.tellTo(actor, payRequest)
@@ -253,14 +277,23 @@ class PaymentActorSpec
                   Future.successful(generateResponse("TW001"))
               }
               val payRequest =
-                Settle(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("567"), AmountTran(5))
+                Settle(
+                  ClientId(777),
+                  CustomerId("789"),
+                  WalletShopId("123"),
+                  OrderId("567"),
+                  AmountTran(5),
+                  replyTo,
+                  _,
+                )
               val actor = createActor(issuingServiceGatewayErrCode)
 
               AtLeastOnceDelivery.tellTo(actor, payRequest)
               val expect = IssuingServiceServerError("承認売上送信", "TW001")
               expectMsg(SettlementFailureResponse(expect))
 
-              val cancelRequest = Cancel(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"))
+              val cancelRequest =
+                Cancel(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"), replyTo, _)
               AtLeastOnceDelivery.tellTo(actor, cancelRequest)
               val expectedClientErrorMessage = ValidationFailure("walletShopId または orderId が不正です")
 
@@ -305,7 +338,15 @@ class PaymentActorSpec
             ): Future[IssuingServiceResponse] = ???
           }
           val payRequest =
-            Settle(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"), AmountTran(5))
+            Settle(
+              ClientId(777),
+              CustomerId("789"),
+              WalletShopId("123"),
+              OrderId("456"),
+              AmountTran(5),
+              replyTo,
+              _,
+            )
           val actor = createActor(issuingServiceGatewayFail)
 
           AtLeastOnceDelivery.tellTo(actor, payRequest)
@@ -337,7 +378,7 @@ class PaymentActorSpec
             ),
           )
           val payRequest =
-            Settle(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("57"), AmountTran(5))
+            Settle(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("57"), AmountTran(5), replyTo, _)
           val transactionIdFactory: TransactionIdFactory = new TransactionIdFactory {
             override def generate()(implicit tenant: Tenant): Future[TransactionId] = {
               Future.failed(new RuntimeException)
@@ -378,7 +419,15 @@ class PaymentActorSpec
           )
 
           val payRequest =
-            Settle(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("5555"), AmountTran(5))
+            Settle(
+              ClientId(777),
+              CustomerId("789"),
+              WalletShopId("123"),
+              OrderId("5555"),
+              AmountTran(5),
+              replyTo,
+              _,
+            )
           val actor = createActor(issuingServiceGatewaySuccess)
 
           AtLeastOnceDelivery.tellTo(actor, payRequest)
@@ -412,8 +461,16 @@ class PaymentActorSpec
           ),
         )
 
-        val payRequest = Settle(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("789"), AmountTran(5))
-        val actor      = createActor(issuingServiceGatewaySuccess)
+        val payRequest = Settle(
+          ClientId(777),
+          CustomerId("789"),
+          WalletShopId("123"),
+          OrderId("789"),
+          AmountTran(5),
+          replyTo,
+          _,
+        )
+        val actor = createActor(issuingServiceGatewaySuccess)
 
         AtLeastOnceDelivery.tellTo(actor, payRequest)
         expectMsg(SettlementSuccessResponse())
@@ -429,7 +486,8 @@ class PaymentActorSpec
           ),
         )
 
-        val cancelRequest = Cancel(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"))
+        val cancelRequest =
+          Cancel(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"), replyTo, _)
         AtLeastOnceDelivery.tellTo(actor, cancelRequest)
         expectMsg(SettlementSuccessResponse())
 
@@ -461,8 +519,16 @@ class PaymentActorSpec
           ),
         )
 
-        val payRequest = Settle(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("789"), AmountTran(5))
-        val actor      = createActor(issuingServiceGatewaySuccess)
+        val payRequest = Settle(
+          ClientId(777),
+          CustomerId("789"),
+          WalletShopId("123"),
+          OrderId("789"),
+          AmountTran(5),
+          replyTo,
+          _,
+        )
+        val actor = createActor(issuingServiceGatewaySuccess)
 
         AtLeastOnceDelivery.tellTo(actor, payRequest)
         expectMsg(SettlementSuccessResponse())
@@ -472,7 +538,8 @@ class PaymentActorSpec
           HouseMemberStore.delete,
         )
 
-        val cancelRequest = Cancel(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"))
+        val cancelRequest =
+          Cancel(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"), replyTo, _)
         AtLeastOnceDelivery.tellTo(actor, cancelRequest)
 
         val expect = NotFound("決済情報")
@@ -514,13 +581,22 @@ class PaymentActorSpec
             Future.successful(generateResponse("TW005"))
         }
         val payRequest =
-          Settle(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("7777"), AmountTran(5))
+          Settle(
+            ClientId(777),
+            CustomerId("789"),
+            WalletShopId("123"),
+            OrderId("7777"),
+            AmountTran(5),
+            replyTo,
+            _,
+          )
         val actor = createActor(issuingServiceGatewayOKNG)
 
         AtLeastOnceDelivery.tellTo(actor, payRequest)
         expectMsg(SettlementSuccessResponse())
 
-        val cancelRequest = Cancel(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"))
+        val cancelRequest =
+          Cancel(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"), replyTo, _)
         AtLeastOnceDelivery.tellTo(actor, cancelRequest)
         // CODE-011
         val expect = IssuingServiceAlreadyCanceled()
@@ -561,13 +637,22 @@ class PaymentActorSpec
           )(implicit appRequestContext: AppRequestContext): Future[IssuingServiceResponse] =
             Future.successful(generateResponse("TW900"))
         }
-        val payRequest = Settle(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"), AmountTran(5))
-        val actor      = createActor(issuingServiceGatewayOKNG)
+        val payRequest = Settle(
+          ClientId(777),
+          CustomerId("789"),
+          WalletShopId("123"),
+          OrderId("456"),
+          AmountTran(5),
+          replyTo,
+          _,
+        )
+        val actor = createActor(issuingServiceGatewayOKNG)
 
         AtLeastOnceDelivery.tellTo(actor, payRequest)
         expectMsg(SettlementSuccessResponse())
 
-        val cancelRequest = Cancel(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"))
+        val cancelRequest =
+          Cancel(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"), replyTo, _)
         AtLeastOnceDelivery.tellTo(actor, cancelRequest)
         val expect = IssuingServiceServerError("承認取消送信", "TW900")
         expectMsg(SettlementFailureResponse(expect))
@@ -607,13 +692,22 @@ class PaymentActorSpec
           )(implicit appRequestContext: AppRequestContext): Future[IssuingServiceResponse] =
             Future.failed(new BusinessException(TimeOut("123")))
         }
-        val payRequest = Settle(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"), AmountTran(5))
-        val actor      = createActor(issuingServiceGatewayOKFail)
+        val payRequest = Settle(
+          ClientId(777),
+          CustomerId("789"),
+          WalletShopId("123"),
+          OrderId("456"),
+          AmountTran(5),
+          replyTo,
+          _,
+        )
+        val actor = createActor(issuingServiceGatewayOKFail)
 
         AtLeastOnceDelivery.tellTo(actor, payRequest)
         expectMsg(SettlementSuccessResponse())
 
-        val cancelRequest = Cancel(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"))
+        val cancelRequest =
+          Cancel(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"), replyTo, _)
         AtLeastOnceDelivery.tellTo(actor, cancelRequest)
 
         val expect = TimeOut("123")
@@ -642,13 +736,22 @@ class PaymentActorSpec
             serviceRelationId = Option(BigDecimal(1.11)),
           ),
         )
-        val payRequest = Settle(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"), AmountTran(5))
-        val actor      = createActor(issuingServiceGatewaySuccess)
+        val payRequest = Settle(
+          ClientId(777),
+          CustomerId("789"),
+          WalletShopId("123"),
+          OrderId("456"),
+          AmountTran(5),
+          replyTo,
+          _,
+        )
+        val actor = createActor(issuingServiceGatewaySuccess)
 
         AtLeastOnceDelivery.tellTo(actor, payRequest)
         expectMsg(SettlementSuccessResponse())
 
-        val cancelRequest = Cancel(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"))
+        val cancelRequest =
+          Cancel(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"), replyTo, _)
         AtLeastOnceDelivery.tellTo(actor, cancelRequest)
         AtLeastOnceDelivery.tellTo(actor, cancelRequest)
         expectMsg(SettlementSuccessResponse())
@@ -693,13 +796,22 @@ class PaymentActorSpec
           )(implicit appRequestContext: AppRequestContext): Future[IssuingServiceResponse] =
             Future.failed(gatewayException)
         }
-        val payRequest = Settle(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"), AmountTran(5))
-        val actor      = createActor(issuingServiceGatewayOKFail)
+        val payRequest = Settle(
+          ClientId(777),
+          CustomerId("789"),
+          WalletShopId("123"),
+          OrderId("456"),
+          AmountTran(5),
+          replyTo,
+          _,
+        )
+        val actor = createActor(issuingServiceGatewayOKFail)
 
         AtLeastOnceDelivery.tellTo(actor, payRequest)
         expectMsg(SettlementSuccessResponse())
 
-        val cancelRequest = Cancel(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"))
+        val cancelRequest =
+          Cancel(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"), replyTo, _)
         AtLeastOnceDelivery.tellTo(actor, cancelRequest)
         AtLeastOnceDelivery.tellTo(actor, cancelRequest)
 
@@ -751,7 +863,15 @@ class PaymentActorSpec
             ): Future[IssuingServiceResponse] = ???
           }
           val payRequest =
-            Settle(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("567"), AmountTran(5))
+            Settle(
+              ClientId(777),
+              CustomerId("789"),
+              WalletShopId("123"),
+              OrderId("567"),
+              AmountTran(5),
+              replyTo,
+              _,
+            )
           val actor = createActor(issuingServiceGatewayFailure)
 
           AtLeastOnceDelivery.tellTo(actor, payRequest)
@@ -767,20 +887,32 @@ class PaymentActorSpec
   def createActor(
       gateway: IssuingServiceGateway,
       transactionIdFactory: TransactionIdFactory = transactionIdFactorySuccess,
-  )(implicit jdbcService: JDBCService, tables: Tables): ActorRef =
-    system.actorOf(
-      Props(
-        new PaymentActor(
-          config,
-          gateway,
-          jdbcService,
-          tables,
-          dateTime,
-          transactionIdFactory,
-          paymentIdFactory,
-        ),
-      ),
-      name = MultiTenantShardingSupportTestHelper.generateActorName(),
+  )(implicit jdbcService: JDBCService, tables: Tables): ActorRef[Command] =
+    typedTestkit.spawn(
+      Behaviors.setup[Command](context => {
+        Behaviors.withTimers(timers => {
+          withLogger(logger => {
+            val actor = new PaymentActor(
+              config,
+              gateway,
+              jdbcService,
+              tables,
+              dateTime,
+              transactionIdFactory,
+              paymentIdFactory,
+              context,
+              timers,
+              new EntityContext(
+                EntityTypeKey("dummy"),
+                entityId = MultiTenantShardingSupportTestHelper.generateActorName(), // FIXME
+                shard = TestProbe().ref.toTyped,
+              ),
+              logger,
+            )
+            actor.eventSourcedBehavior()
+          })
+        })
+      }),
     )
 
   override def afterAll(): Unit = {

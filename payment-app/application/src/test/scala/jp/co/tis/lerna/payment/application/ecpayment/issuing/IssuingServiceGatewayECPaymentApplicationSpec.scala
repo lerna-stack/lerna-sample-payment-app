@@ -1,6 +1,7 @@
 package jp.co.tis.lerna.payment.application.ecpayment.issuing
 
-import akka.actor.ActorSystem
+import akka.actor.typed.scaladsl.adapter._
+import akka.actor.{ typed, ActorSystem }
 import akka.cluster.Cluster
 import com.typesafe.config.{ Config, ConfigFactory }
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.IssuingServiceECPaymentApplication
@@ -77,6 +78,7 @@ class IssuingServiceGatewayECPaymentApplicationSpec
     .bind[ActorSystem].toProvider { config: Config =>
       ActorSystem("IssuingServiceECPaymentApplicationSpec", config)
     }
+    .bind[typed.ActorSystem[Nothing]].toSingletonProvider[ActorSystem](_.toTyped)
     .bind[IssuingServiceGateway].toInstance(issuingService)
     .bind[TransactionIdFactory].toInstance(transactionIdFactory)
     .bind[PaymentIdFactory].toInstance(paymentIdFactory)
@@ -102,8 +104,8 @@ class IssuingServiceGatewayECPaymentApplicationSpec
     .bind[IssuingServiceECPaymentApplication].to[IssuingServiceECPaymentApplicationImpl]
 
   "IssuingServiceECPaymentApplicationSpec" should {
-    implicit val system: ActorSystem = diSession.build[ActorSystem]
-    val cluster                      = Cluster(system)
+    val system  = diSession.build[typed.ActorSystem[Nothing]]
+    val cluster = Cluster(system)
     cluster.join(cluster.selfAddress)
 
     val application = diSession.build[IssuingServiceECPaymentApplication]
