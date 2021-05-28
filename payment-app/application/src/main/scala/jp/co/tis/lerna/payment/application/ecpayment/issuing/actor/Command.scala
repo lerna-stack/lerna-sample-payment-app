@@ -1,5 +1,6 @@
 package jp.co.tis.lerna.payment.application.ecpayment.issuing.actor
 
+import akka.cluster.sharding.ShardRegion.EntityId
 import jp.co.tis.lerna.payment.adapter.ecpayment.model.{ OrderId, WalletShopId }
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model.AmountTran
 import jp.co.tis.lerna.payment.adapter.issuing.model.{
@@ -22,6 +23,7 @@ sealed trait BusinessCommand extends Command with MultiTenantSupportCommand {
   def clientId: ClientId
   def walletShopId: WalletShopId
   def orderId: OrderId
+  def entityId: EntityId = s"${clientId.value}-${walletShopId.value}-${orderId.value}"
   def appRequestContext: AppRequestContext
   override def tenant: AppTenant = appRequestContext.tenant
 }

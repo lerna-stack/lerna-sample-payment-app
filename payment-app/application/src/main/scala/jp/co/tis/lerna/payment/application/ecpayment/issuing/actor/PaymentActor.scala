@@ -5,7 +5,6 @@ import java.time.LocalDateTime
 
 import akka.actor.{ ActorRef, ActorSystem, Cancellable, Props, ReceiveTimeout }
 import akka.cluster.Cluster
-import akka.cluster.sharding.ShardRegion.EntityId
 import akka.cluster.sharding.{ ClusterSharding, ClusterShardingSettings, ShardRegion }
 import akka.persistence.PersistentActor
 import com.typesafe.config.Config
@@ -66,12 +65,9 @@ object PaymentActor {
     )(implicit
         system: ActorSystem,
     ): ActorRef = {
-      def calculateEntityId(command: BusinessCommand): EntityId =
-        s"${command.clientId.value}-${command.walletShopId.value}-${command.orderId.value}"
-
       val extractEntityId: ShardRegion.ExtractEntityId = {
         case request @ AtLeastOnceDeliveryRequest(command: BusinessCommand) =>
-          val entityId = MultiTenantShardingSupport.tenantSupportEntityId(command, calculateEntityId)
+          val entityId = MultiTenantShardingSupport.tenantSupportEntityId[BusinessCommand](command, _.entityId)
           (entityId, request)
       }
 
@@ -79,7 +75,7 @@ object PaymentActor {
 
       val extractShardId: ShardRegion.ExtractShardId = {
         case AtLeastOnceDeliveryRequest(command: BusinessCommand) =>
-          Math.abs(calculateEntityId(command).hashCode % numberOfShards).toString
+          Math.abs(command.entityId.hashCode % numberOfShards).toString
       }
 
       val clusterSharding         = ClusterSharding(system)
