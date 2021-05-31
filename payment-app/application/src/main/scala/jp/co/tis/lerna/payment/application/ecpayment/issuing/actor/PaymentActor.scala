@@ -3,7 +3,7 @@ package jp.co.tis.lerna.payment.application.ecpayment.issuing.actor
 import java.time
 import java.time.LocalDateTime
 
-import akka.actor.{ ActorRef, ActorSystem, Cancellable, Props, ReceiveTimeout, Status }
+import akka.actor.{ ActorRef, ActorSystem, Cancellable, Props, ReceiveTimeout }
 import akka.cluster.Cluster
 import akka.cluster.sharding.ShardRegion.EntityId
 import akka.cluster.sharding.{ ClusterSharding, ClusterShardingSettings, ShardRegion }
@@ -237,9 +237,7 @@ class PaymentActor(
         )
         replyAndStopSelf(
           sender,
-          Status.Failure(
-            new BusinessException(msg),
-          ),
+          SettlementFailureResponse(msg),
         )
 
       case request @ AtLeastOnceDeliveryRequest(payRequest: Settle) =>
@@ -400,7 +398,6 @@ class PaymentActor(
 
                     val message = IssuingServiceServerError("承認売上送信", errorCode)
                     logger.warn(s"${message.messageId}: ${message.messageContent}")
-                    val failure = new BusinessException(message)
 
                     val event =
                       SettlementFailureConfirmed(
@@ -412,7 +409,7 @@ class PaymentActor(
                         systemTime,
                       )
 
-                    persistAndReply(event, Status.Failure(failure)) {
+                    persistAndReply(event, SettlementFailureResponse(message)) {
                       // do nothing
                     }
                 }
@@ -427,7 +424,7 @@ class PaymentActor(
                     message,
                     systemTime,
                   ),
-                  Status.Failure(new BusinessException(message)),
+                  SettlementFailureResponse(message),
                 ) {
                   // do nothing
                 }
@@ -441,7 +438,7 @@ class PaymentActor(
                 message,
                 systemTime,
               ),
-              Status.Failure(new BusinessException(message)),
+              SettlementFailureResponse(message),
             ) {
               // do nothing
             }
@@ -680,7 +677,7 @@ class PaymentActor(
                       )
                       val message = IssuingServiceAlreadyCanceled()
                       logger.debug(s"${message.messageId}: ${message.messageContent}")
-                      persistAndReply(event, Status.Failure(new BusinessException(message))) {
+                      persistAndReply(event, SettlementFailureResponse(message)) {
                         // do nothing
                       }
 
@@ -703,7 +700,7 @@ class PaymentActor(
                           saleDateTime,
                           systemDateTime,
                         )
-                      persistAndReply(event, Status.Failure(new BusinessException(message))) {
+                      persistAndReply(event, SettlementFailureResponse(message)) {
                         // do nothing
                       }
                   }
@@ -722,7 +719,7 @@ class PaymentActor(
                       systemDateTime,
                     )
 
-                  persistAndReply(cancelFailedEvent, Status.Failure(new BusinessException(message))) {
+                  persistAndReply(cancelFailedEvent, SettlementFailureResponse(message)) {
                     // do nothing
                   }
               }
@@ -731,7 +728,7 @@ class PaymentActor(
               // 非同期処理対象外
               val cancelFailedEvent =
                 CancelAborted()
-              persistAndReply(cancelFailedEvent, Status.Failure(new BusinessException(message))) {
+              persistAndReply(cancelFailedEvent, SettlementFailureResponse(message)) {
                 // do nothing
               }
           }
@@ -760,8 +757,8 @@ class PaymentActor(
   }
 
   // 永続化およびPresentationへの返事
-  private def persistAndReply(event: ECPaymentIssuingServiceEvent, msg: Any)(afterPersist: => Unit)(implicit
-      processingContext: ProcessingContext,
+  private def persistAndReply(event: ECPaymentIssuingServiceEvent, msg: SettlementResponse)(afterPersist: => Unit)(
+      implicit processingContext: ProcessingContext,
   ): Unit = {
     // 処理が完了の時点で、たまったPay Commandをunstash
     // 目的：処理中で受けったPay Commandに対し、同じ処理結果を返すため
@@ -803,7 +800,7 @@ class PaymentActor(
         logger.info(
           s"status: failed, msg: $msg",
         )
-        replyAndStopSelf(sender(), Status.Failure(new BusinessException(message)))
+        replyAndStopSelf(sender(), SettlementFailureResponse(message))
     }
   }
 
@@ -920,11 +917,11 @@ class PaymentActor(
       case request @ AtLeastOnceDeliveryRequest(payRequest: Settle) => // DOS攻撃防止のため
         request.accept()
         val msg = ValidationFailure("walletShopId または orderId が不正です")
-        replyAndStopSelf(sender, Status.Failure(new BusinessException(msg)))
+        replyAndStopSelf(sender, SettlementFailureResponse(msg))
       case request @ AtLeastOnceDeliveryRequest(payRequest: Cancel) => // DOS攻撃防止のため
         request.accept()
         val msg = ValidationFailure("walletShopId または orderId が不正です")
-        replyAndStopSelf(sender, Status.Failure(new BusinessException(msg)))
+        replyAndStopSelf(sender, SettlementFailureResponse(msg))
       case ReceiveTimeout =>
         implicit val appRequestContext: AppRequestContext = AppRequestContext(TraceId.unknown, tenant)
         logger.info("Actorの生成から一定時間経過しました。Actorを停止します。")
@@ -942,13 +939,13 @@ class PaymentActor(
   /** 応答とその他処理
     * @param result 応答メッセージ
     */
-  private def replyResult(result: Any)(implicit processingContext: ProcessingContext): Unit = {
+  private def replyResult(result: SettlementResponse)(implicit processingContext: ProcessingContext): Unit = {
     unstashAll()
     replyAndStopSelf(processingContext.replyTo.actorRef, result)
   }
 
   // 返事およびアウターストップ
-  private def replyAndStopSelf(replyTo: ActorRef, msg: Any): Unit = {
+  private def replyAndStopSelf(replyTo: ActorRef, msg: SettlementResponse): Unit = {
     replyTo ! msg
     stopSelfSafely()
   }

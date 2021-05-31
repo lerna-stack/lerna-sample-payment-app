@@ -1,6 +1,6 @@
 package jp.co.tis.lerna.payment.application.ecpayment.issuing.actor
 
-import akka.actor.{ ActorRef, ActorSystem, Props, Status }
+import akka.actor.{ ActorRef, ActorSystem, Props }
 import akka.testkit.{ ImplicitSender, TestKit }
 import com.typesafe.config.{ Config, ConfigFactory }
 import jp.co.tis.lerna.payment.adapter.ecpayment.model.{ OrderId, WalletShopId }
@@ -145,11 +145,7 @@ class PaymentActorSpec
             AtLeastOnceDelivery.tellTo(actor, payRequest)
 
             val expect = NotFound("決済情報")
-            inside(expectMsgType[Status.Failure]) {
-              case Status.Failure(ex: BusinessException) =>
-                ex.message.messageContent must be(expect.messageContent)
-                ex.message.messageId must be(expect.messageId)
-            }
+            expectMsg(SettlementFailureResponse(expect))
           }
         }
 
@@ -182,11 +178,7 @@ class PaymentActorSpec
 
             AtLeastOnceDelivery.tellTo(actor, payRequest)
             val expect = NotFound("決済情報")
-            inside(expectMsgType[Status.Failure]) {
-              case Status.Failure(ex: BusinessException) =>
-                ex.message.messageContent must be(expect.messageContent)
-                ex.message.messageId must be(expect.messageId)
-            }
+            expectMsg(SettlementFailureResponse(expect))
           }
         }
 
@@ -264,20 +256,13 @@ class PaymentActorSpec
 
               AtLeastOnceDelivery.tellTo(actor, payRequest)
               val expect = IssuingServiceServerError("承認売上送信", "TW001")
-              inside(expectMsgType[Status.Failure]) {
-                case Status.Failure(ex: BusinessException) =>
-                  ex.message.messageContent must be(expect.messageContent)
-                  ex.message.messageId must be(expect.messageId)
-              }
+              expectMsg(SettlementFailureResponse(expect))
 
               val cancelRequest = Cancel(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"))
               AtLeastOnceDelivery.tellTo(actor, cancelRequest)
               val expectedClientErrorMessage = ValidationFailure("walletShopId または orderId が不正です")
 
-              inside(expectMsgType[Status.Failure]) {
-                case Status.Failure(ex: BusinessException) =>
-                  ex.message must be(expectedClientErrorMessage)
-              }
+              expectMsg(SettlementFailureResponse(expectedClientErrorMessage))
             }
           }
         }
@@ -324,11 +309,7 @@ class PaymentActorSpec
           AtLeastOnceDelivery.tellTo(actor, payRequest)
 
           val expect = TimeOut("Some error")
-          inside(expectMsgType[Status.Failure]) {
-            case Status.Failure(ex: BusinessException) =>
-              ex.message.messageContent must be(expect.messageContent)
-              ex.message.messageId must be(expect.messageId)
-          }
+          expectMsg(SettlementFailureResponse(expect))
         }
 
         "決済失敗: 未知の異常" in withJDBC { db =>
@@ -377,11 +358,7 @@ class PaymentActorSpec
 
           AtLeastOnceDelivery.tellTo(actor, payRequest)
           val expect = UnpredictableError()
-          inside(expectMsgType[Status.Failure]) {
-            case Status.Failure(ex: BusinessException) =>
-              ex.message.messageContent must be(expect.messageContent)
-              ex.message.messageId must be(expect.messageId)
-          }
+          expectMsg(SettlementFailureResponse(expect))
         }
       }
     }
@@ -469,10 +446,7 @@ class PaymentActorSpec
 
         AtLeastOnceDelivery.tellTo(actor, payRequest)
         val expectedClientErrorMessage = ValidationFailure("walletShopId または orderId が不正です")
-        inside(expectMsgType[Status.Failure]) {
-          case Status.Failure(ex: BusinessException) =>
-            ex.message must be(expectedClientErrorMessage)
-        }
+        expectMsg(SettlementFailureResponse(expectedClientErrorMessage))
       }
 
       "決済取消送信、DBに合うデータがない、永続化しない" in withJDBC { db =>
@@ -513,11 +487,7 @@ class PaymentActorSpec
         AtLeastOnceDelivery.tellTo(actor, cancelRequest)
 
         val expect = NotFound("決済情報")
-        inside(expectMsgType[Status.Failure]) {
-          case Status.Failure(ex: BusinessException) =>
-            ex.message.messageContent must be(expect.messageContent)
-            ex.message.messageId must be(expect.messageId)
-        }
+        expectMsg(SettlementFailureResponse(expect))
       }
 
       "決済取消送信、GatewayレスポンスがNormal かつ エラーコードが「既に取消済み」 → 取消失敗(IssuingServiceAlreadyCanceled)" in withJDBC { db =>
@@ -565,11 +535,7 @@ class PaymentActorSpec
         AtLeastOnceDelivery.tellTo(actor, cancelRequest)
         // CODE-011
         val expect = IssuingServiceAlreadyCanceled()
-        inside(expectMsgType[Status.Failure]) {
-          case Status.Failure(ex: BusinessException) =>
-            ex.message.messageContent must be(expect.messageContent)
-            ex.message.messageId must be(expect.messageId)
-        }
+        expectMsg(SettlementFailureResponse(expect))
       }
 
       "決済取消送信、GatewayレスポンスがNormal かつ エラーコードが正常、「既に取消済み」以外 → 取消失敗(IssuingServiceServerError" in withJDBC { db =>
@@ -615,11 +581,7 @@ class PaymentActorSpec
         val cancelRequest = Cancel(ClientId(777), CustomerId("789"), WalletShopId("123"), OrderId("456"))
         AtLeastOnceDelivery.tellTo(actor, cancelRequest)
         val expect = IssuingServiceServerError("承認取消送信", "TW900")
-        inside(expectMsgType[Status.Failure]) {
-          case Status.Failure(ex: BusinessException) =>
-            ex.message.messageContent must be(expect.messageContent)
-            ex.message.messageId must be(expect.messageId)
-        }
+        expectMsg(SettlementFailureResponse(expect))
       }
 
       "決済取消送信、GatewayレスポンスがFailure → エラー" in withJDBC { db =>
@@ -666,11 +628,7 @@ class PaymentActorSpec
         AtLeastOnceDelivery.tellTo(actor, cancelRequest)
 
         val expect = TimeOut("123")
-        inside(expectMsgType[Status.Failure]) {
-          case Status.Failure(ex: BusinessException) =>
-            ex.message.messageContent must be(expect.messageContent)
-            ex.message.messageId must be(expect.messageId)
-        }
+        expectMsg(SettlementFailureResponse(expect))
       }
 
       "取消成功、再度送信 → 取消成功" in withJDBC { db =>
@@ -757,16 +715,8 @@ class PaymentActorSpec
         AtLeastOnceDelivery.tellTo(actor, cancelRequest)
 
         val expectedMessage = gatewayException.message
-        inside(expectMsgType[Status.Failure]) {
-          case Status.Failure(ex: BusinessException) =>
-            ex.message.messageContent must be(expectedMessage.messageContent)
-            ex.message.messageId must be(expectedMessage.messageId)
-        }
-        inside(expectMsgType[Status.Failure]) {
-          case Status.Failure(ex: BusinessException) =>
-            ex.message.messageContent must be(expectedMessage.messageContent)
-            ex.message.messageId must be(expectedMessage.messageId)
-        }
+        expectMsg(SettlementFailureResponse(expectedMessage))
+        expectMsg(SettlementFailureResponse(expectedMessage))
       }
     }
 
@@ -818,16 +768,8 @@ class PaymentActorSpec
           AtLeastOnceDelivery.tellTo(actor, payRequest)
           AtLeastOnceDelivery.tellTo(actor, payRequest)
 
-          inside(expectMsgType[Status.Failure]) {
-            case Status.Failure(ex: BusinessException) =>
-              ex.message.messageContent must be(expect.messageContent)
-              ex.message.messageId must be(expect.messageId)
-          }
-          inside(expectMsgType[Status.Failure]) {
-            case Status.Failure(ex: BusinessException) =>
-              ex.message.messageContent must be(expect.messageContent)
-              ex.message.messageId must be(expect.messageId)
-          }
+          expectMsg(SettlementFailureResponse(expect))
+          expectMsg(SettlementFailureResponse(expect))
         }
       }
     }
