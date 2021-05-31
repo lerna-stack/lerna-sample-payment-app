@@ -348,15 +348,15 @@ class PaymentActor(
 
       // 決済要求リクエスト前に失敗
       case event: SettlementAborted =>
-        Failed(new BusinessException(event.failureMessage))
+        Failed(event.failureMessage)
 
       // 決済失敗
       case event: SettlementFailureConfirmed =>
-        Failed(new BusinessException(event.failureMessage))
+        Failed(event.failureMessage)
 
       case _: SettlementTimeoutDetected =>
         val message = UnpredictableError()
-        Failed(new BusinessException(message))
+        Failed(message)
 
     }
 
@@ -691,7 +691,6 @@ class PaymentActor(
 
                       val message = IssuingServiceServerError("承認取消送信", errorCode)
                       logger.warn(s"${message.messageId}: ${message.messageContent}")
-                      val failure = new BusinessException(message)
                       val event =
                         CancelFailureConfirmed(
                           paymentResponse,
@@ -704,7 +703,7 @@ class PaymentActor(
                           saleDateTime,
                           systemDateTime,
                         )
-                      persistAndReply(event, Status.Failure(failure)) {
+                      persistAndReply(event, Status.Failure(new BusinessException(message))) {
                         // do nothing
                       }
                   }
@@ -791,7 +790,7 @@ class PaymentActor(
   }
 
   case class Failed(
-      cause: BusinessException,
+      message: OnlineProcessingFailureMessage,
   ) extends State {
     override def updated: EventHandler = PartialFunction.empty
 
@@ -804,7 +803,7 @@ class PaymentActor(
         logger.info(
           s"status: failed, msg: $msg",
         )
-        replyAndStopSelf(sender(), Status.Failure(cause))
+        replyAndStopSelf(sender(), Status.Failure(new BusinessException(message)))
     }
   }
 
