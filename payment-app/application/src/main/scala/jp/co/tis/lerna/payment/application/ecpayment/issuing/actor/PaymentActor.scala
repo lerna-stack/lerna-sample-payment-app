@@ -266,11 +266,11 @@ class PaymentActor(
 
           resultFuture onComplete { triedResult =>
             val result: Either[
-              BusinessException,
+              OnlineProcessingFailureMessage,
               (
                   IssuingServicePayCredential,
                   AuthorizationRequestParameter,
-                  Either[BusinessException, IssuingServiceResponse],
+                  Either[OnlineProcessingFailureMessage, IssuingServiceResponse],
               ),
             ] = triedResult.toEither.left.map(handleException)
             sendToSelf(SettlementResult(result))
@@ -311,19 +311,19 @@ class PaymentActor(
         )
 
       }
-      result: Either[BusinessException, IssuingServiceResponse] <- gateway
+      result: Either[OnlineProcessingFailureMessage, IssuingServiceResponse] <- gateway
         .requestAuthorization(request).transform {
           // Gatewayエラーの場合のみ、非同期処理で、RDBMSに登録必要
           case Success(response) =>
             Success(Right(response))
 
           case Failure(ex: BusinessException) =>
-            Success(Left(ex))
+            Success(Left(ex.message))
 
           case Failure(exception) =>
             val message = UnpredictableError()
             logger.warn(exception, "{}: {}", message.messageId, message.messageContent)
-            Success(Left(new BusinessException(message)))
+            Success(Left(message))
         }
     } yield (payCredential, request, result)
   }
@@ -417,17 +417,17 @@ class PaymentActor(
                     }
                 }
 
-              case Left(businessException) =>
+              case Left(message) =>
                 persistAndReply(
                   SettlementFailureConfirmed(
                     None,
                     payCredential,
                     requestInfo,
                     req,
-                    businessException.message,
+                    message,
                     systemTime,
                   ),
-                  Status.Failure(businessException),
+                  Status.Failure(new BusinessException(message)),
                 ) {
                   // do nothing
                 }
@@ -435,13 +435,13 @@ class PaymentActor(
 
           // Gatewayから何のレスポンスEntity(JSON)もなし
           // 承認売上も、障害取消も
-          case Left(businessException) =>
+          case Left(message) =>
             persistAndReply(
               SettlementAborted(
-                businessException.message,
+                message,
                 systemTime,
               ),
-              Status.Failure(businessException),
+              Status.Failure(new BusinessException(message)),
             ) {
               // do nothing
             }
@@ -556,19 +556,19 @@ class PaymentActor(
         paymentId = paymentId,                // (会員ごと)決済番号
         terminalId = payCredential.terminalId,// 端末識別番号
       )
-      issuingServicePaymentResult: Either[BusinessException, IssuingServiceResponse] <- gateway
+      issuingServicePaymentResult: Either[OnlineProcessingFailureMessage, IssuingServiceResponse] <- gateway
         .requestAcquirerReversal(acquirerReversalRequestParameter, originalRequestParameter).transform {
           // Gatewayエラーの場合のみ、非同期処理で、RDBMSに登録必要
           case Success(response) =>
             Success(Right(response))
 
           case Failure(ex: BusinessException) =>
-            Success(Left(ex))
+            Success(Left(ex.message))
 
           case Failure(exception) =>
             val message = UnpredictableError()
             logger.warn(exception, "{}: {}", message.messageId, message.messageContent)
-            Success(Left(new BusinessException(message)))
+            Success(Left(message))
         }
     } yield (
       issuingServicePaymentResult,
@@ -709,30 +709,30 @@ class PaymentActor(
                       }
                   }
 
-                case Left(businessException) =>
+                case Left(message) =>
                   val cancelFailedEvent =
                     CancelFailureConfirmed(
                       paymentResponse,
                       requestInfo,
                       payCredential,
                       None,
-                      businessException.message,
+                      message,
                       originalRequest,
                       acquirerReversalRequestParameter,
                       saleDateTime,
                       systemDateTime,
                     )
 
-                  persistAndReply(cancelFailedEvent, Status.Failure(businessException)) {
+                  persistAndReply(cancelFailedEvent, Status.Failure(new BusinessException(message))) {
                     // do nothing
                   }
               }
 
-            case Left(businessException) =>
+            case Left(message) =>
               // 非同期処理対象外
               val cancelFailedEvent =
                 CancelAborted()
-              persistAndReply(cancelFailedEvent, Status.Failure(businessException)) {
+              persistAndReply(cancelFailedEvent, Status.Failure(new BusinessException(message))) {
                 // do nothing
               }
           }
@@ -888,13 +888,15 @@ class PaymentActor(
     *
     * @param cause 異常
     */
-  private def handleException(cause: Throwable)(implicit appRequestContext: AppRequestContext): BusinessException = {
+  private def handleException(
+      cause: Throwable,
+  )(implicit appRequestContext: AppRequestContext): OnlineProcessingFailureMessage = {
     cause match {
-      case exception: BusinessException => exception
+      case exception: BusinessException => exception.message
       case ex =>
         val message = UnpredictableError()
         logger.warn(ex, "{}: {}", message.messageId, message.messageContent)
-        new BusinessException(message)
+        message
     }
   }
 
