@@ -23,7 +23,7 @@ lazy val `payment-app` = (project in file("."))
       List(
         organization := "jp.co.tis.lerna.payment",
         version := "1.1.0",
-        scalaVersion := "2.12.12",
+        scalaVersion := "2.12.13",
         scalacOptions ++= Seq(
           "-deprecation",
           "-feature",
