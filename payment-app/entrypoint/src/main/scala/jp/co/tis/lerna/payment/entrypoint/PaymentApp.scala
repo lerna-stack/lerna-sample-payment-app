@@ -19,7 +19,6 @@ import jp.co.tis.lerna.payment.presentation.util.directives.rejection.AppRejecti
 import jp.co.tis.lerna.payment.presentation.util.errorhandling.AppExceptionHandler
 import jp.co.tis.lerna.payment.utility.tenant.AppTenant
 import kamon.Kamon
-import kamon.system.SystemMetrics
 import lerna.management.stats.Metrics
 import lerna.util.time.JavaDurationConverters._
 
@@ -41,8 +40,7 @@ class PaymentApp(implicit
   def start(): Unit = {
     healthCheckWithRetry() onComplete {
       case Success(_) =>
-        Kamon.addReporter(metrics)
-        SystemMetrics.startCollecting()
+        Kamon.init(config)
 
         if (!config.getBoolean("jp.co.tis.lerna.payment.rdbms-read-only")) {
           readModelUpdaterManager.startReadModelUpdaters()
