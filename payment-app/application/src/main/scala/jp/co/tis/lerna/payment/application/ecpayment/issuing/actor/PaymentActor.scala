@@ -348,11 +348,11 @@ class PaymentActor(
 
       // 決済要求リクエスト前に失敗
       case event: SettlementAborted =>
-        Failed(event.cause)
+        Failed(new BusinessException(event.failureMessage))
 
       // 決済失敗
       case event: SettlementFailureConfirmed =>
-        Failed(event.cause)
+        Failed(new BusinessException(event.failureMessage))
 
       case _: SettlementTimeoutDetected =>
         val message = UnpredictableError()
@@ -408,7 +408,7 @@ class PaymentActor(
                         payCredential,
                         requestInfo,
                         req,
-                        failure,
+                        message,
                         systemTime,
                       )
 
@@ -424,7 +424,7 @@ class PaymentActor(
                     payCredential,
                     requestInfo,
                     req,
-                    businessException,
+                    businessException.message,
                     systemTime,
                   ),
                   Status.Failure(businessException),
@@ -438,7 +438,7 @@ class PaymentActor(
           case Left(businessException) =>
             persistAndReply(
               SettlementAborted(
-                businessException,
+                businessException.message,
                 systemTime,
               ),
               Status.Failure(businessException),
@@ -698,7 +698,7 @@ class PaymentActor(
                           requestInfo,
                           payCredential,
                           Option(response),
-                          failure,
+                          message,
                           originalRequest,
                           acquirerReversalRequestParameter,
                           saleDateTime,
@@ -716,7 +716,7 @@ class PaymentActor(
                       requestInfo,
                       payCredential,
                       None,
-                      businessException,
+                      businessException.message,
                       originalRequest,
                       acquirerReversalRequestParameter,
                       saleDateTime,
