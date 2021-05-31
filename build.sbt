@@ -54,6 +54,7 @@ lazy val `payment-app` = (project in file("."))
         // forkプロセスのstdoutをこのプロセスのstdout,stderrをこのプロセスのstderrに転送する
         // デフォルトのLoggedOutputでは、airframeやkamonが標準エラーに出力するログが[error]とプリフィクスがつき、紛らわしいためです。
         outputStrategy := Some(StdoutOutput),
+        resolvers += Resolver.sonatypeRepo("snapshots"),
       ),
     ),
     //
