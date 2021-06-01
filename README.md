@@ -94,6 +94,95 @@ Lernaを使って実装した「決済ゲートウェイ」アプリケーショ
       "http://127.0.0.1:9001/00/ec/settlements/000000000000000000000000000000000000002/$(date +%s%3N)/payment"
     ```
 
+## APIs
+
+### Management APIs
+
+デフォルトではポート番号 `9002` が使用されます。
+
+※ コマンド例を記載しています。`$` から始まるものがコマンドです。
+実行結果例を空行を入れて記載しています。
+実行結果は実行ごとに異なる値となることがあるのでご注意ください。
+
+### Health Check
+
+ヘルスチェックを行うための API です。  
+正常に稼働していれば StatusCode 200 と レスポンスボディ `OK` が返ります。
+```
+$ curl -H 'X-Tenant-Id:example' http://127.0.0.1:9002/health
+
+OK
+```
+
+### Metrics
+
+アプリケーションの各種メトリクスを取得するための API です。
+
+#### システム
+
+- 使用済みJVMヒープ (byte)  
+    ```
+    $ curl --silent --show-error --noproxy '*' \
+      http://127.0.0.1:9002/metrics/system-metrics/jvm-memory/heap/used
+  
+    306621099
+    ```
+- 最大JVMヒープ (byte)  
+   ```
+   $ curl --silent --show-error --noproxy '*' \
+     http://127.0.0.1:9002/metrics/system-metrics/jvm-memory/heap/max
+  
+   3758096384
+   ```
+
+#### テナントごと
+- SalesDetail イベント処理に使用するイベントハンドラの数
+    ```
+    $ curl --silent --show-error --noproxy '*' \
+      http://127.0.0.1:9002/metrics/rmu/sales_detail/ec_house_money/number_of_singleton?tenant=example
+  
+    25
+    ```
+- SalesDetail イベントが Cassandra に永続化されてから RMU で処理完了するまでの時間 (ms)
+    ```
+    $ curl --silent --show-error --noproxy '*' \
+      http://127.0.0.1:9002/metrics/rmu/sales_detail/ec_house_money/update_delay?tenant=example
+  
+    3008
+    ```
+
+### バージョン情報
+
+バージョン情報を取得するための API です。  
+[RPMパッケージビルドガイド](docs/RPMパッケージビルドガイド.md) に従って RPM をビルドすることで、
+そのRPMビルドには `unknown` ではない適切なバージョン番号とコミットハッシュが設定されます。
+
+- バージョン番号
+  ```
+  $ curl --silent --show-error --noproxy '*' \
+      http://127.0.0.1:9002/version
+  
+  unknown
+  ```
+- gitコミットハッシュ
+  ```
+  $ curl --silent --show-error --noproxy '*' \
+      http://127.0.0.1:9002/commit-hash
+  
+  unknown
+  ```
+
+### グレースフルシャットダウン
+
+- 新規処理の受付停止
+    ```
+    $ curl --silent --show-error --noproxy '*' \
+        -X POST \
+        http://127.0.0.1:9002/shutdown/hand-off-service
+  
+    新規処理の受付停止リクエストを受け付けました
+    ```
+
 ## License
 
 lerna-sample-payment-app is released under the terms of the [Apache License Version 2.0](LICENSE).
