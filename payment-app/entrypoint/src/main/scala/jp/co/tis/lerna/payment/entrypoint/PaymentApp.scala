@@ -2,7 +2,6 @@ package jp.co.tis.lerna.payment.entrypoint
 
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
-
 import akka.Done
 import akka.actor.{ ActorSystem, CoordinatedShutdown, Scheduler }
 import akka.http.scaladsl.Http.ServerBinding
@@ -11,6 +10,7 @@ import akka.http.scaladsl.{ ConnectionContext, Http }
 import akka.stream.Materializer
 import com.typesafe.config.Config
 import com.typesafe.sslconfig.ssl.SSLConfigFactory
+
 import javax.net.ssl.{ KeyManager, SSLContext, X509TrustManager }
 import jp.co.tis.lerna.payment.adapter.util.health.HealthCheckApplication
 import jp.co.tis.lerna.payment.application.readmodelupdater.ReadModelUpdaterManager
@@ -22,6 +22,7 @@ import kamon.Kamon
 import lerna.management.stats.Metrics
 import lerna.util.time.JavaDurationConverters._
 
+import scala.annotation.nowarn
 import scala.concurrent.Future
 import scala.util.{ Failure, Success }
 
@@ -29,7 +30,8 @@ import scala.util.{ Failure, Success }
 class PaymentApp(implicit
     val actorSystem: ActorSystem,
     rootRoute: RootRoute,
-    metrics: Metrics,
+    // Kamon.init よりも先に Metrics のインスタンスを生成する必要があるため
+    @nowarn("cat=unused") metrics: Metrics,
     config: Config,
     readModelUpdaterManager: ReadModelUpdaterManager,
     healthCheck: HealthCheckApplication,
