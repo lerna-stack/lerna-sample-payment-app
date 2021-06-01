@@ -70,7 +70,7 @@ class PaymentActorSpec
     }
   }
 
-  val transactionIdFactory: TransactionIdFactory = new TransactionIdFactory {
+  val transactionIdFactorySuccess: TransactionIdFactory = new TransactionIdFactory {
     override def generate()(implicit tenant: Tenant): Future[TransactionId] = {
       Future.successful(TransactionId(123456789012L))
     }
@@ -343,20 +343,7 @@ class PaymentActorSpec
               Future.failed(new RuntimeException)
             }
           }
-          val actor = system.actorOf(
-            Props(
-              new PaymentActor(
-                config,
-                issuingServiceGatewaySuccess,
-                jdbcService,
-                tables,
-                dateTime,
-                transactionIdFactory,
-                paymentIdFactory,
-              ),
-            ),
-            name = MultiTenantShardingSupportTestHelper.generateActorName(),
-          )
+          val actor = createActor(issuingServiceGatewaySuccess, transactionIdFactory)
 
           AtLeastOnceDelivery.tellTo(actor, payRequest)
           val expect = UnpredictableError()
@@ -777,7 +764,10 @@ class PaymentActorSpec
     }
   }
 
-  def createActor(gateway: IssuingServiceGateway)(implicit jdbcService: JDBCService, tables: Tables): ActorRef =
+  def createActor(
+      gateway: IssuingServiceGateway,
+      transactionIdFactory: TransactionIdFactory = transactionIdFactorySuccess,
+  )(implicit jdbcService: JDBCService, tables: Tables): ActorRef =
     system.actorOf(
       Props(
         new PaymentActor(
