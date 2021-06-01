@@ -1,13 +1,13 @@
 package jp.co.tis.lerna.payment.application.util.tenant.actor
 
-import java.net.{ URLDecoder, URLEncoder }
-import java.nio.charset.StandardCharsets
-
 import akka.actor.Actor
 import akka.cluster.sharding.ShardRegion
 import jp.co.tis.lerna.payment.application.util.tenant.MultiTenantSupportCommand
 import jp.co.tis.lerna.payment.utility.tenant.AppTenant
 import lerna.util.lang.Equals._
+
+import java.net.{ URLDecoder, URLEncoder }
+import java.nio.charset.StandardCharsets
 
 object MultiTenantShardingSupport {
 

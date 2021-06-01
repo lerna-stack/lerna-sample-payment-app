@@ -1,8 +1,5 @@
 package jp.co.tis.lerna.payment.application.util.health
 
-import java.util.UUID
-import java.util.concurrent.atomic.AtomicBoolean
-
 import akka.Done
 import akka.actor.{ Actor, ActorSystem, CoordinatedShutdown, NoSerializationVerificationNeeded, Props }
 import akka.pattern.ask
@@ -18,6 +15,8 @@ import jp.co.tis.lerna.payment.utility.tenant.AppTenant
 import lerna.log.AppLogging
 import lerna.util.time.JavaDurationConverters._
 
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.Future
 import scala.util.Failure
 
@@ -145,8 +144,8 @@ class HealthCheckApplicationImpl(config: Config, tables: Tables, system: ActorSy
     * @return Future[Done]
     */
   def checkRDBMS()(implicit tenant: AppTenant): Future[Done] = {
-    import tables.profile.api._
     import lerna.util.tenant.TenantComponentLogContext.logContext
+    import tables.profile.api._
     logger.debug("ヘルスチェックRDBMS")
     val action = sql"""SELECT 1 FROM DUAL""".as[Boolean].head
     jdbcService.db

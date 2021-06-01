@@ -4,13 +4,7 @@ import akka.actor.ActorSystem
 import akka.util.Timeout
 import com.typesafe.config.Config
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.IssuingServiceECPaymentApplication
-import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model.{
-  PaymentCancelParameter,
-  PaymentParameter,
-  SettlementFailureResponse,
-  SettlementResponse,
-  SettlementSuccessResponse,
-}
+import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model._
 import jp.co.tis.lerna.payment.adapter.issuing.IssuingServiceGateway
 import jp.co.tis.lerna.payment.adapter.util.exception.BusinessException
 import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.PaymentActor.Sharding

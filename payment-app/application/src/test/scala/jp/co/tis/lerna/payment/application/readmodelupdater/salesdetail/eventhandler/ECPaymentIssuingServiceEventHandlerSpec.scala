@@ -1,26 +1,21 @@
 package jp.co.tis.lerna.payment.application.readmodelupdater.salesdetail.eventhandler
 
-import java.sql.Timestamp
-import java.time.temporal.ChronoUnit
-import java.time.{ LocalDateTime, Month }
-import java.util.concurrent.atomic.AtomicInteger
-
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
 import com.typesafe.config.{ Config, ConfigFactory }
-import jp.co.tis.lerna.payment.adapter.ecpayment.model.{ OrderId, WalletShopId }
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model._
-import jp.co.tis.lerna.payment.adapter.notification.util.model.{
-  HouseMoneySettlementNotificationRequest,
-  NotificationResponse,
-  NotificationSuccess,
-}
+import jp.co.tis.lerna.payment.adapter.ecpayment.model.{ OrderId, WalletShopId }
 import jp.co.tis.lerna.payment.adapter.issuing.model.{
   AcquirerReversalRequestParameter,
   AuthorizationRequestParameter,
   IssuingServiceResponse,
 }
 import jp.co.tis.lerna.payment.adapter.notification.HouseMoneySettlementNotification
+import jp.co.tis.lerna.payment.adapter.notification.util.model.{
+  HouseMoneySettlementNotificationRequest,
+  NotificationResponse,
+  NotificationSuccess,
+}
 import jp.co.tis.lerna.payment.adapter.util.{
   IssuingServiceBadRequestError,
   IssuingServiceServerError,
@@ -34,9 +29,9 @@ import jp.co.tis.lerna.payment.application.readmodelupdater.salesdetail.EventPer
 import jp.co.tis.lerna.payment.readmodel.constant.{ LogicalDeleteFlag, SaleCancelType }
 import jp.co.tis.lerna.payment.readmodel.schema.Tables
 import jp.co.tis.lerna.payment.readmodel.{ JDBCSupport, ReadModelDIDesign }
-import jp.co.tis.lerna.payment.utility.{ AppRequestContext, UtilityDIDesign }
 import jp.co.tis.lerna.payment.utility.scalatest.StandardSpec
 import jp.co.tis.lerna.payment.utility.tenant.{ AppTenant, Example }
+import jp.co.tis.lerna.payment.utility.{ AppRequestContext, UtilityDIDesign }
 import lerna.testkit.airframe.DISessionSupport
 import lerna.util.time.{ FixedLocalDateTimeFactory, LocalDateTimeFactory }
 import lerna.util.trace.TraceId
@@ -44,6 +39,10 @@ import org.scalatest.Inside
 import org.scalatest.concurrent.ScalaFutures
 import wvlet.airframe.Design
 
+import java.sql.Timestamp
+import java.time.temporal.ChronoUnit
+import java.time.{ LocalDateTime, Month }
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.Future
 
 // Lint回避のため
