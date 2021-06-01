@@ -9,6 +9,9 @@ payment-app に関する注目すべき変更はこのファイルで文書化�
 
 TODO: sample の version 体系について検討
 
+### ADDED
+- [README](README.md) に Management APIs の使用方法を記載しました
+
 ### CHANGED
 - `Scala 2.12.13` に更新します
 - `sbt-wartremover 2.4.13` に更新します
