@@ -339,7 +339,8 @@ lazy val `slick-codegen` = (project in file("slick-codegen"))
     name := "slick-codegen",
     libraryDependencies ++= Seq(
       Slick.codegen,
-      MariaDB.connectorJ,
+      // MariaDB.connectorJ,
+      MySQL.connectorJ,
     ),
   )
 

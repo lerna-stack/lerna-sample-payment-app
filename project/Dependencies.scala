@@ -19,6 +19,7 @@ object Dependencies {
     val guava                    = "29.0-jre"
     val sprayJson                = "1.3.5"
     val mariadbConnectorJ        = "2.6.2"
+    val mysqlConnectorJ          = "8.0.25"
   }
 
   object Lerna {
@@ -117,6 +118,10 @@ object Dependencies {
 
   object MariaDB {
     val connectorJ = "org.mariadb.jdbc" % "mariadb-java-client" % Versions.mariadbConnectorJ
+  }
+
+  object MySQL {
+    val connectorJ = "mysql" % "mysql-connector-java" % Versions.mysqlConnectorJ
   }
 
 }
