@@ -13,6 +13,7 @@ TODO: sample の version 体系について検討
 - [README](README.md) に Management APIs の使用方法を記載しました
 
 ### CHANGED
+- `lerna-app-library-2.0.0-6bad8983-SNAPSHOT` に更新しました
 - `Scala 2.12.13` に更新しました
 - `sbt-wartremover 2.4.13` に更新しました
 
