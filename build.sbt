@@ -168,6 +168,7 @@ lazy val `adapter` = (project in file("payment-app/adapter"))
     name := "adapter",
     libraryDependencies ++= Seq(
       ScalaTest.scalaTest % Test,
+      Lerna.management,
     ),
   )
 

@@ -1,13 +1,16 @@
 package jp.co.tis.lerna.payment.application
 
 import akka.actor.ActorSystem
+import com.typesafe.config.Config
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.IssuingServiceECPaymentApplication
 import jp.co.tis.lerna.payment.adapter.util.authorization.ClientAuthorizationApplication
 import jp.co.tis.lerna.payment.adapter.util.health.HealthCheckApplication
+import jp.co.tis.lerna.payment.adapter.util.metrics.MetricsReporter
 import jp.co.tis.lerna.payment.adapter.util.shutdown.GracefulShutdownApplication
 import jp.co.tis.lerna.payment.application.ecpayment.issuing._
 import jp.co.tis.lerna.payment.application.util.authorization.ClientAuthorizationApplicationImpl
 import jp.co.tis.lerna.payment.application.util.health.HealthCheckApplicationImpl
+import jp.co.tis.lerna.payment.application.util.metrics.{ MetricsReporterImpl, MetricsReporterSettings }
 import jp.co.tis.lerna.payment.application.util.shutdown.GracefulShutdownApplicationImpl
 import jp.co.tis.lerna.payment.utility.tenant.AppTenant
 import lerna.management.stats.Metrics
@@ -34,6 +37,10 @@ trait ApplicationDIDesign {
     .bind[ClientAuthorizationApplication].to[ClientAuthorizationApplicationImpl]
     .bind[Metrics].toSingletonProvider[ActorSystem] { system =>
       Metrics(system, AppTenant.values.toSet)
+    }
+    .bind[MetricsReporter].to[MetricsReporterImpl]
+    .bind[MetricsReporterSettings].toSingletonProvider[Config] { config =>
+      MetricsReporterSettings.fromConfig(config)
     }
     .bind[TransactionIdSequenceFactory].to[TransactionIdSequenceFactoryImpl]
     .bind[PaymentIdSequenceFactory].to[PaymentIdSequenceFactoryImpl]

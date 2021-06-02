@@ -3,12 +3,13 @@ package jp.co.tis.lerna.payment.entrypoint
 import akka.actor.{ ActorSystem, CoordinatedShutdown }
 import akka.cluster.Cluster
 import com.typesafe.config.ConfigFactory
+import jp.co.tis.lerna.payment.application.util.metrics
 import lerna.log.AppLogging
 import lerna.util.encryption.EncryptionConfig
 import wvlet.airframe._
 
 import scala.concurrent.Future
-import scala.util.Failure
+import scala.util.{ Failure, Success }
 
 @SuppressWarnings(
   Array(
@@ -32,6 +33,13 @@ object Main extends App with AppLogging {
       logger.error(throwable, "起動時バリデーションエラー")
     }
     System.exit(1)
+  }
+
+  metrics.MetricsReporterSettings.tryFromConfig(config) match {
+    case Success(value) => // Do nothing
+    case Failure(cause) =>
+      logger.error(cause, "メトリクス収集の設定を修正してください")
+      System.exit(1)
   }
 
   private val system: ActorSystem = ActorSystem("GatewaySystem", config)
