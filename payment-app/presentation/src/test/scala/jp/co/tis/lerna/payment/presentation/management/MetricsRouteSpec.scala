@@ -4,10 +4,10 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import com.typesafe.config.{ Config, ConfigFactory }
-import jp.co.tis.lerna.payment.adapter.util.metrics.MetricsReporter
 import jp.co.tis.lerna.payment.presentation.PresentationDIDesign
-import jp.co.tis.lerna.payment.presentation.management.mock.MetricsReporterMock
+import jp.co.tis.lerna.payment.presentation.management.mock.MetricsImplMock
 import jp.co.tis.lerna.payment.utility.scalatest.StandardSpec
+import lerna.management.stats.Metrics
 import lerna.testkit.airframe.DISessionSupport
 import org.scalatest.{ Inside, WordSpec }
 import wvlet.airframe.Design
@@ -26,7 +26,7 @@ class MetricsRouteSpec extends WordSpec with StandardSpec with ScalatestRouteTes
     .bind[ActorSystem].toProvider { config: Config =>
       ActorSystem("MetricsImplSpec", config)
     }
-    .bind[MetricsReporter].to[MetricsReporterMock]
+    .bind[Metrics].to[MetricsImplMock]
     .bind[Config].toInstance(ConfigFactory.load())
 
   private val route = diSession.build[MetricsRoute].route

@@ -6,14 +6,12 @@ import akka.http.scaladsl.model.{ StatusCode, StatusCodes }
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.{ Directive1, Route }
 import com.typesafe.config.Config
-import jp.co.tis.lerna.payment.adapter.util.metrics.MetricsReporter
 import jp.co.tis.lerna.payment.utility.tenant.AppTenant
-import lerna.management.stats.MetricsKey
+import lerna.management.stats.{ Metrics, MetricsKey }
 
 import scala.util.{ Success, Try }
 
-class MetricsRoute(config: Config, implicit val system: ActorSystem, metrics: MetricsReporter)
-    extends SprayJsonSupport {
+class MetricsRoute(config: Config, implicit val system: ActorSystem, metrics: Metrics) extends SprayJsonSupport {
 
   import system.dispatcher
 
