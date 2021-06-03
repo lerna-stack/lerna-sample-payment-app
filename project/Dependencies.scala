@@ -47,6 +47,7 @@ object Dependencies {
     val persistenceTyped     = "com.typesafe.akka" %% "akka-persistence-typed"      % Versions.akka
     val persistenceQuery     = "com.typesafe.akka" %% "akka-persistence-query"      % Versions.akka
     val testKit              = "com.typesafe.akka" %% "akka-testkit"                % Versions.akka
+    val actorTestKitTyped    = "com.typesafe.akka" %% "akka-actor-testkit-typed"    % Versions.akka
     val streamTestKit        = "com.typesafe.akka" %% "akka-stream-testkit"         % Versions.akka
     val multiNodeTestKit     = "com.typesafe.akka" %% "akka-multi-node-testkit"     % Versions.akka
   }
