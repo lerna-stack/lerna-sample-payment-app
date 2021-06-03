@@ -20,6 +20,8 @@ TODO: sample の version 体系について検討
         - `/metrics/system-metrics/jvm-memory/heap/max`
 - `Scala 2.12.13` に更新しました
 - `sbt-wartremover 2.4.13` に更新しました
+- Akka typed 対応のため、 `PaymentActor` から `self` にメッセージを送る際の処理を変更しました
+    - graceful shutdown 時のレイテンシが増加する可能性があります
 
 ## Version 1.1.0
 - `Changed` Read Model Updater を分散実行しスループットを向上
