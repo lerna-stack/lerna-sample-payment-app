@@ -132,7 +132,7 @@ OK
    $ curl --silent --show-error --noproxy '*' \
      http://127.0.0.1:9002/metrics/system-metrics/jvm-memory/heap/max
   
-   3758096384
+   3.765960704E9
    ```
 
 #### テナントごと
@@ -141,7 +141,7 @@ OK
     $ curl --silent --show-error --noproxy '*' \
       http://127.0.0.1:9002/metrics/rmu/sales_detail/ec_house_money/number_of_singleton?tenant=example
   
-    25
+    25.0
     ```
 - SalesDetail イベントが Cassandra に永続化されてから RMU で処理完了するまでの時間 (ms)
     ```

@@ -7,6 +7,7 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.{ Directive1, Route }
 import com.typesafe.config.Config
 import jp.co.tis.lerna.payment.utility.tenant.AppTenant
+import kamon.Kamon
 import lerna.management.stats.{ Metrics, MetricsKey }
 
 import scala.util.{ Success, Try }
@@ -14,6 +15,8 @@ import scala.util.{ Success, Try }
 class MetricsRoute(config: Config, implicit val system: ActorSystem, metrics: Metrics) extends SprayJsonSupport {
 
   import system.dispatcher
+
+  Kamon.init(config)
 
   def route: Route = {
     (pathPrefix("metrics" / Remaining) & extractTenantParameter).tmap(MetricsKey.tupled).apply { key =>

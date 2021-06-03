@@ -20,7 +20,8 @@ import jp.co.tis.lerna.payment.readmodel.schema.Tables
 import jp.co.tis.lerna.payment.utility.AppRequestContext
 import jp.co.tis.lerna.payment.utility.tenant.AppTenant
 import kamon.metric.MeasurementUnit
-import kamon.{ Kamon, Tags }
+import kamon.Kamon
+import kamon.tag.TagSet
 import lerna.log.AppLogging
 import lerna.util.time.LocalDateTimeFactory
 import lerna.util.trace.TraceId
@@ -58,17 +59,19 @@ trait SalesDetailEventHandler[E <: SalesDetailDomainEvent]
 
   private[this] val singletonCounter = Kamon
     .gauge("payment-app.rmu.number_of_singleton")
-    .refine(metricTag)
+    .withTags(metricTag)
 
   private[this] val updateDelayHistogram = Kamon
     .histogram("payment-app.rmu.update_delay", MeasurementUnit.none)
-    .refine(metricTag)
+    .withTags(metricTag)
 
   import lerna.management.stats.MetricsMultiTenantSupport._
-  def metricTag: Tags =
-    Map(
-      "component" -> componentName,
-      "category"  -> categoryName,
+  def metricTag: TagSet = TagSet
+    .from(
+      Map(
+        "component" -> componentName,
+        "category"  -> categoryName,
+      ),
     ).withTenant
 
   /** Cassandraへの登録からRDBへの書き込みまでのタイムラグの計測結果をKamonに送る

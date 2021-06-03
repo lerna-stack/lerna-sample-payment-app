@@ -34,8 +34,6 @@ class MetricsImplMock(system: ActorSystem, config: Config = Kamon.config()) exte
 
   override def reconfigure(config: Config): Unit = ???
 
-  override def start(): Unit = {}
-
   override def stop(): Unit = {}
 
 }
