@@ -13,9 +13,7 @@ import jp.co.tis.lerna.payment.adapter.issuing.model.{
 import jp.co.tis.lerna.payment.adapter.util.OnlineProcessingFailureMessage
 import jp.co.tis.lerna.payment.adapter.wallet.{ ClientId, CustomerId }
 import jp.co.tis.lerna.payment.application.ecpayment.issuing.IssuingServicePayCredential
-import jp.co.tis.lerna.payment.application.util.tenant.MultiTenantSupportCommand
 import jp.co.tis.lerna.payment.utility.AppRequestContext
-import jp.co.tis.lerna.payment.utility.tenant.AppTenant
 import lerna.util.akka.AtLeastOnceDelivery
 import lerna.util.time.LocalDateTimeFactory
 import lerna.util.trace.RequestContext
@@ -40,13 +38,12 @@ object ProcessingTimeout {
   ): ProcessingTimeout = apply(lerna.util.akka.ProcessingTimeout(acceptedDateTime, askTimeout, config))
 }
 
-sealed trait BusinessCommand extends Command with MultiTenantSupportCommand {
+sealed trait BusinessCommand extends Command {
   def clientId: ClientId
   def walletShopId: WalletShopId
   def orderId: OrderId
   def entityId: EntityId = s"${clientId.value}-${walletShopId.value}-${orderId.value}"
   def appRequestContext: AppRequestContext
-  override def tenant: AppTenant = appRequestContext.tenant
 }
 
 trait AtLeastOnceDeliveryAcceptable {

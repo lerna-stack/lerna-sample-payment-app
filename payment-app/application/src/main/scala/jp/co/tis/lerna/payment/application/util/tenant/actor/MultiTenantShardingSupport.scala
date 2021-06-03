@@ -1,8 +1,7 @@
 package jp.co.tis.lerna.payment.application.util.tenant.actor
 
-import akka.actor.Actor
-import akka.cluster.sharding.ShardRegion
-import jp.co.tis.lerna.payment.application.util.tenant.MultiTenantSupportCommand
+import akka.cluster.sharding.ShardRegion.EntityId
+import akka.cluster.sharding.typed.scaladsl.EntityContext
 import jp.co.tis.lerna.payment.utility.tenant.AppTenant
 import lerna.util.lang.Equals._
 
@@ -24,12 +23,9 @@ object MultiTenantShardingSupport {
   }
   private[this] def decode(str: String) = URLDecoder.decode(str, StandardCharsets.UTF_8.name)
 
-  def tenantSupportEntityId[Command <: MultiTenantSupportCommand](
-      command: Command,
-      calculateEntityId: Command => ShardRegion.EntityId,
-  ): String = {
-    val encodedTenantId         = encode(command.tenant.id)
-    val encodedOriginalEntityId = encode(calculateEntityId(command))
+  def tenantSupportEntityId(entityId: EntityId)(implicit tenant: AppTenant): String = {
+    val encodedTenantId         = encode(tenant.id)
+    val encodedOriginalEntityId = encode(entityId)
 
     s"${encodedTenantId}${delimiter}${encodedOriginalEntityId}"
   }
@@ -51,12 +47,11 @@ object MultiTenantShardingSupport {
 
 /** ClusterSharding で　Entity Actor として使用されるマルチテナント対応 Actor
   */
-trait MultiTenantShardingSupport extends MultiTenantSupport { self: Actor =>
-  // ClusterSharding が entityId を actor name にする際 URLEncode しているため元に戻す (Akka の仕様変更 or typed 化したときに注意)
-  private[this] def rawEntityId = URLDecoder.decode(context.self.path.name, StandardCharsets.UTF_8.name)
-  // 初期化順の関係で `val` だと 初期化中に MultiTenantPersistentActor から参照されて null になるため `lazy val` とする
-  private[this] lazy val (_tenant, _originalEntityId) =
-    MultiTenantShardingSupport.extractTenantAndEntityId(rawEntityId)
+trait MultiTenantShardingSupport[Command] extends MultiTenantSupport {
+  def entityContext: EntityContext[Command]
+
+  private[this] val (_tenant, _originalEntityId) =
+    MultiTenantShardingSupport.extractTenantAndEntityId(entityContext.entityId)
 
   override implicit def tenant: AppTenant = _tenant
 

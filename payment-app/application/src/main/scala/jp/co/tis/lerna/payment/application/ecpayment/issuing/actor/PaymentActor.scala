@@ -24,11 +24,14 @@ import jp.co.tis.lerna.payment.application.ecpayment.issuing.{
   PaymentIdFactory,
   TransactionIdFactory,
 }
+import jp.co.tis.lerna.payment.application.util.tenant.actor.{
+  MultiTenantPersistentSupport,
+  MultiTenantShardingSupport,
+}
 import jp.co.tis.lerna.payment.readmodel.JDBCService
 import jp.co.tis.lerna.payment.readmodel.constant.{ LogicalDeleteFlag, ServiceRelationForeignKeyType }
 import jp.co.tis.lerna.payment.readmodel.schema.Tables
 import jp.co.tis.lerna.payment.utility.AppRequestContext
-import jp.co.tis.lerna.payment.utility.tenant.{ AppTenant, Example }
 import lerna.log.{ AppLogger, AppTypedActorLogging }
 import lerna.util.lang.Equals._
 import lerna.util.time.LocalDateTimeFactory
@@ -114,11 +117,10 @@ class PaymentActor(
     paymentIdFactory: PaymentIdFactory,
     context: ActorContext[Command],
     timers: TimerScheduler[Command],
-    entityContext: EntityContext[Command],
+    val entityContext: EntityContext[Command],
     logger: AppLogger,
-) {
-
-  private implicit val tenant: AppTenant = Example // TODO: マルチテナント対応
+) extends MultiTenantPersistentSupport
+    with MultiTenantShardingSupport[Command] {
 
   import context.executionContext
   import lerna.util.time.JavaDurationConverters._
@@ -136,7 +138,7 @@ class PaymentActor(
 
   def eventSourcedBehavior(): EventSourcedBehavior[Command, ECPaymentIssuingServiceEvent, State] = {
     val persistenceId =
-      PersistenceId.of(entityContext.entityTypeKey.name, entityContext.entityId) // TODO: マルチテナント対応
+      PersistenceId.of(entityContext.entityTypeKey.name, originalEntityId)
 
     EventSourcedBehavior[Command, ECPaymentIssuingServiceEvent, State](
       persistenceId = persistenceId,
@@ -144,11 +146,8 @@ class PaymentActor(
       commandHandler = (state, command) => state.applyCommand(command),
       eventHandler = (state, event) => state.applyEvent(event),
     )
-      .withJournalPluginId {
-        val pluginIdPrefix = config.getString("jp.co.tis.lerna.payment.application.persistence.plugin-id-prefix")
-        s"${pluginIdPrefix}.tenants.${tenant.id}.journal"
-      }
-      .withSnapshotPluginId("akka.persistence.no-snapshot-store")
+      .withJournalPluginId(journalPluginId(config))
+      .withSnapshotPluginId(snapshotPluginId)
   }
 
   // type alias to reduce boilerplate

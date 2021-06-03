@@ -1,11 +1,14 @@
 package jp.co.tis.lerna.payment.application.util.health
 
-import akka.Done
-import akka.actor.{ Actor, ActorSystem, CoordinatedShutdown, NoSerializationVerificationNeeded, Props }
-import akka.pattern.ask
-import akka.persistence.PersistentActor
+import akka.actor.typed.scaladsl.AskPattern.Askable
+import akka.actor.typed.scaladsl.adapter._
+import akka.actor.typed.{ ActorRef, Scheduler }
+import akka.actor.{ ActorSystem, CoordinatedShutdown, NoSerializationVerificationNeeded }
+import akka.persistence.typed.PersistenceId
+import akka.persistence.typed.scaladsl.{ Effect, EventSourcedBehavior }
 import akka.stream.alpakka.cassandra.scaladsl.CassandraSessionRegistry
 import akka.util.Timeout
+import akka.{ Done, NotUsed }
 import com.typesafe.config.Config
 import jp.co.tis.lerna.payment.adapter.util.health.HealthCheckApplication
 import jp.co.tis.lerna.payment.application.util.tenant.actor.MultiTenantPersistentSupport
@@ -25,35 +28,36 @@ object HealthCheckApplicationImpl {
   /** Akka Persistence Cassandra の HealthCheck が journal plugin の変更をまだサポートしていないため
     */
   private object AkkaPersistenceCassandraHelper extends AppLogging {
-    private case object Ping extends NoSerializationVerificationNeeded
+    class TestPersistentActor(config: Config)(implicit val tenant: AppTenant) extends MultiTenantPersistentSupport {
+      def eventSourcedBehavior(): EventSourcedBehavior[TestPersistentActor.Ping, NotUsed, NotUsed] =
+        EventSourcedBehavior
+          .withEnforcedReplies[TestPersistentActor.Ping, NotUsed, NotUsed](
+            persistenceId = PersistenceId.ofUniqueId(s"dummy-${UUID.randomUUID()}"),
+            emptyState = NotUsed,
+            commandHandler = { case (_, ping) => Effect.stop().thenReply(ping.replyTo)(_ => Done) },
+            eventHandler = { case (state, _) => state },
+          )
+          .withJournalPluginId(journalPluginId(config))
+          .withSnapshotPluginId(snapshotPluginId)
+    }
+
+    object TestPersistentActor {
+      final case class Ping(replyTo: ActorRef[Done]) extends NoSerializationVerificationNeeded
+    }
 
     /** 初期化順の関係で autoCreateTable などの AkkaPersistenceCassandra のセッション初期化処理が実行されないことがある問題に対処する
       */
     def initializeAkkaPersistenceCassandra(system: ActorSystem)(implicit _tenant: AppTenant): Future[Done] = {
-      val props = Props(new PersistentActor with MultiTenantPersistentSupport {
-        override def receiveRecover: Receive = Actor.emptyBehavior
-
-        override def receiveCommand: Receive = {
-          case Ping =>
-            // Cassandraからの読み込み・Recovery が完了したら receiveCommand にメッセージが渡される
-            sender() ! Done
-            context.stop(self)
-        }
-
-        override def persistenceId: String = s"dummy-${UUID.randomUUID()}"
-
-        // `def journalPluginId: String` は MultiTenantPersistentSupport が `tenant` をもとに自動生成する
-        override implicit def tenant: AppTenant = _tenant
-      })
-      val actor = system.actorOf(props)
+      val actor = system.spawnAnonymous(new TestPersistentActor(system.settings.config).eventSourcedBehavior())
 
       implicit val timeout: Timeout = system.settings.config
         .getDuration(
           "jp.co.tis.lerna.payment.application.util.health.wait-for-akka-persistence-cassandra-initialization",
         ).asScala
 
+      implicit val scheduler: Scheduler = system.scheduler.toTyped
       import system.dispatcher
-      (actor ? Ping).mapTo[Done] andThen {
+      (actor ? TestPersistentActor.Ping) andThen {
         case Failure(exception) =>
           import lerna.util.tenant.TenantComponentLogContext.logContext
           logger.error(exception, "Cassandraへの接続/初期化に失敗しました。アプリを再起動してください。")

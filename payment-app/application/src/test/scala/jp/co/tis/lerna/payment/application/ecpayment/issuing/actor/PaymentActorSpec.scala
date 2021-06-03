@@ -904,7 +904,7 @@ class PaymentActorSpec
               timers,
               new EntityContext(
                 EntityTypeKey("dummy"),
-                entityId = MultiTenantShardingSupportTestHelper.generateActorName(), // FIXME
+                entityId = MultiTenantShardingSupportTestHelper.generateEntityId(),
                 shard = TestProbe().ref.toTyped,
               ),
               logger,

@@ -10,6 +10,7 @@ import jp.co.tis.lerna.payment.adapter.issuing.IssuingServiceGateway
 import jp.co.tis.lerna.payment.adapter.util.exception.BusinessException
 import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.PaymentActor.Sharding
 import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.{ Cancel, Command, Settle }
+import jp.co.tis.lerna.payment.application.util.tenant.actor.MultiTenantShardingSupport
 import jp.co.tis.lerna.payment.readmodel.JDBCService
 import jp.co.tis.lerna.payment.readmodel.schema.Tables
 import jp.co.tis.lerna.payment.utility.AppRequestContext
@@ -63,7 +64,8 @@ class IssuingServiceECPaymentApplicationImpl(
             replyTo,
             confirmTo,
           )
-          ShardingEnvelope[Command](command.entityId, command)
+          val tenantSupportEntityId = MultiTenantShardingSupport.tenantSupportEntityId(command.entityId)
+          ShardingEnvelope[Command](tenantSupportEntityId, command)
         },
       ).flatMap {
         case successResponse: SettlementSuccessResponse => Future.successful(successResponse)
@@ -86,7 +88,8 @@ class IssuingServiceECPaymentApplicationImpl(
             replyTo,
             confirmTo,
           )
-          ShardingEnvelope[Command](command.entityId, command)
+          val tenantSupportEntityId = MultiTenantShardingSupport.tenantSupportEntityId(command.entityId)
+          ShardingEnvelope[Command](tenantSupportEntityId, command)
         },
       ).flatMap {
         case successResponse: SettlementSuccessResponse => Future.successful(successResponse)
