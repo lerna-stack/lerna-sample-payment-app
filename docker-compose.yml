@@ -45,6 +45,8 @@ services:
       - "${MOCK_SERVER_IP_PORT:-127.0.0.1:8083}:3000"
 
   sbt-rpmbuild:
+    profiles:
+      - build
     build:
       context: docker/sbt-rpmbuild
       args:
