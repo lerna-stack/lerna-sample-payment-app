@@ -221,7 +221,7 @@ class PaymentActor(
 
             val resultFuture = executePayment(payRequest, systemTime)
 
-            resultFuture onComplete { triedResult =>
+            context.pipeToSelf(resultFuture) { triedResult =>
               val result: Either[
                 OnlineProcessingFailureMessage,
                 (
@@ -230,7 +230,7 @@ class PaymentActor(
                     Either[OnlineProcessingFailureMessage, IssuingServiceResponse],
                 ),
               ] = triedResult.toEither.left.map(handleException)
-              sendToSelf(SettlementResult(result))
+              SettlementResult(result)
             }
           }).thenNoReply()
 
@@ -508,9 +508,9 @@ class PaymentActor(
             msg.accept()
 
             val resultFuture = executeCancel(msg, customerId, originalRequestParameter, systemTime)
-            resultFuture onComplete { triedResult =>
+            context.pipeToSelf(resultFuture) { triedResult =>
               val result = triedResult.toEither.left.map(handleException)
-              sendToSelf(CancelResult(result))
+              CancelResult(result)
             }
           }).thenNoReply()
 
@@ -920,10 +920,6 @@ class PaymentActor(
     logger.info("Actorの生成から一定時間経過しました。Actorを停止します。")
     stopSelfSafely()
     Effect.noReply
-  }
-
-  private def sendToSelf(message: InnerBusinessCommand): Unit = {
-    context.self ! message
   }
 
   // 返事およびアウターストップ
