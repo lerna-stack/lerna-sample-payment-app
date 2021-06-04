@@ -370,11 +370,7 @@ class PaymentActorSpec
                 dateTime,
                 transactionIdFactory,
                 paymentIdFactory,
-              ) {
-                override def sendToSelf(message: InnerCommand): Unit = {
-                  AtLeastOnceDelivery.tellTo(self, message)
-                }
-              },
+              ),
             ),
             name = MultiTenantShardingSupportTestHelper.generateActorName(),
           )
@@ -848,11 +844,7 @@ class PaymentActorSpec
           dateTime,
           transactionIdFactory,
           paymentIdFactory,
-        ) {
-          override def sendToSelf(message: InnerCommand): Unit = {
-            AtLeastOnceDelivery.tellTo(self, message)
-          }
-        },
+        ),
       ),
       name = MultiTenantShardingSupportTestHelper.generateActorName(),
     )

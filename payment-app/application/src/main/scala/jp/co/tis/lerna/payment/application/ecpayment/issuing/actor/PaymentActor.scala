@@ -38,7 +38,7 @@ import jp.co.tis.lerna.payment.utility.AppRequestContext
 import lerna.log.AppActorLogging
 import lerna.util.akka
 import lerna.util.akka.AtLeastOnceDelivery.AtLeastOnceDeliveryRequest
-import lerna.util.akka.{ ActorStateBase, AtLeastOnceDelivery, ProcessingTimeout, ReplyTo }
+import lerna.util.akka.{ ActorStateBase, ProcessingTimeout, ReplyTo }
 import lerna.util.lang.Equals._
 import lerna.util.time.LocalDateTimeFactory
 import lerna.util.trace.TraceId
@@ -165,7 +165,6 @@ class PaymentActor(
     with MultiTenantShardingPersistenceIdHelper
     with AppActorLogging {
 
-  import PaymentActor.Sharding
   import lerna.util.time.JavaDurationConverters._
 
   // actor(self)が終了していると、context === null となり context.dispatcher を取得できなく Future#map が NPE となる問題対策で、 dispatcher を変数に束縛しておく
@@ -361,8 +360,8 @@ class PaymentActor(
 
     }
 
-    override def receiveCommand: Receive = {
-      case request @ AtLeastOnceDeliveryRequest(paymentResult: SettlementResult) =>
+    override def receiveCommand: Receive = stashStopActorMessage orElse {
+      case paymentResult: SettlementResult =>
         import paymentResult.{ appRequestContext, processingContext }
 
         processingTimeoutTimer.cancel()
@@ -391,7 +390,7 @@ class PaymentActor(
                     // 処理が完了の時点で、たまったPay Commandをunstash
                     // 目的：処理中で受けったPay Commandに対し、同じ処理結果を返すため
                     persistAndReply(event, res) {
-                      request.accept()
+                      // do nothing
                     }
                   case errorCode =>
                     // 承認売上送信エラーなし(200) でも エラーコード "00000"以外、エラーにする
@@ -414,7 +413,7 @@ class PaymentActor(
                       )
 
                     persistAndReply(event, Status.Failure(failure)) {
-                      request.accept()
+                      // do nothing
                     }
                 }
 
@@ -430,7 +429,7 @@ class PaymentActor(
                   ),
                   Status.Failure(businessException),
                 ) {
-                  request.accept()
+                  // do nothing
                 }
             }
 
@@ -444,7 +443,7 @@ class PaymentActor(
               ),
               Status.Failure(businessException),
             ) {
-              request.accept()
+              // do nothing
             }
         }
 
@@ -632,8 +631,9 @@ class PaymentActor(
     }
 
     override def receiveCommand: Receive =
+      stashStopActorMessage orElse
       handleCancelProcessingTimeoutMessage(processingTimeoutMessage) orElse {
-        case request @ AtLeastOnceDeliveryRequest(cancelResult: CancelResult) =>
+        case cancelResult: CancelResult =>
           processingTimeoutTimer.cancel()
           import cancelResult.{ appRequestContext, processingContext }
           cancelResult.result match {
@@ -659,7 +659,7 @@ class PaymentActor(
                       )
 
                       persistAndReply(event, res) {
-                        request.accept()
+                        // do nothing
                       }
 
                     case "TW005" => // 取消対象取引が既に取消済
@@ -681,7 +681,7 @@ class PaymentActor(
                       val message = IssuingServiceAlreadyCanceled()
                       logger.debug(s"${message.messageId}: ${message.messageContent}")
                       persistAndReply(event, Status.Failure(new BusinessException(message))) {
-                        request.accept()
+                        // do nothing
                       }
 
                     case errorCode =>
@@ -705,7 +705,7 @@ class PaymentActor(
                           systemDateTime,
                         )
                       persistAndReply(event, Status.Failure(failure)) {
-                        request.accept()
+                        // do nothing
                       }
                   }
 
@@ -724,7 +724,7 @@ class PaymentActor(
                     )
 
                   persistAndReply(cancelFailedEvent, Status.Failure(businessException)) {
-                    request.accept()
+                    // do nothing
                   }
               }
 
@@ -733,7 +733,7 @@ class PaymentActor(
               val cancelFailedEvent =
                 CancelAborted()
               persistAndReply(cancelFailedEvent, Status.Failure(businessException)) {
-                request.accept()
+                // do nothing
               }
           }
 
@@ -902,6 +902,13 @@ class PaymentActor(
     case event: ECPaymentIssuingServiceEvent => updateState(event)
   }
 
+  private def stashStopActorMessage: Receive = {
+    case StopActor =>
+      import lerna.util.tenant.TenantComponentLogContext.logContext
+      logger.info(s"[state: $state, receive: StopActor] 処理結果待ちのため終了処理を保留します")
+      stash()
+  }
+
   // 未処理のメッセージ
   override def unhandled(message: Any): Unit = {
     message match {
@@ -927,19 +934,8 @@ class PaymentActor(
     }
   }
 
-  // actor(self)が終了していると、context === null となり context.system を取得できないので、 system は変数に束縛しておく
-  implicit private val system: ActorSystem = context.system
-
-  // ShardRegion の Graceful shutdown 時用
-  // ShardRegion の shutdown 時に ShardRegion に転送されたメッセージは drop される可能性があるため、proxy 経由とすることで drop を回避する
-  // ShardRegionProxy ではなく ShardRegion 宛に送ると、リトライがあっても ShardRegion が終了していると DeadLetter になる点に注意
-  // ※ Akka 2.5.22 時点での実装依存(SelfDataCenter)
-  private lazy val selfDataCenter   = Cluster(system).settings.SelfDataCenter
-  private lazy val shardRegionProxy = ClusterSharding(system).shardRegionProxy(Sharding.typeName, selfDataCenter)
-
-  protected def sendToSelf(message: InnerCommand): Unit = {
-    import message.appRequestContext
-    AtLeastOnceDelivery.tellTo(shardRegionProxy, message)
+  private def sendToSelf(message: InnerCommand): Unit = {
+    self ! message
   }
 
   /** 応答とその他処理
