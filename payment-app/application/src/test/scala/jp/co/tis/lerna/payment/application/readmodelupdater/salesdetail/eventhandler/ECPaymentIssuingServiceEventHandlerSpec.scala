@@ -21,7 +21,6 @@ import jp.co.tis.lerna.payment.adapter.issuing.model.{
   IssuingServiceResponse,
 }
 import jp.co.tis.lerna.payment.adapter.notification.HouseMoneySettlementNotification
-import jp.co.tis.lerna.payment.adapter.util.exception.BusinessException
 import jp.co.tis.lerna.payment.adapter.util.{
   IssuingServiceBadRequestError,
   IssuingServiceServerError,
@@ -263,7 +262,7 @@ class ECPaymentIssuingServiceEventHandlerSpec
             amountTran = AmountTran(44),
           ),
           issuingServicePaymentRequest1,
-          cause = new BusinessException(message = IssuingServiceBadRequestError("")),
+          failureMessage = IssuingServiceBadRequestError(""),
           date.now(),
         )
 
@@ -345,7 +344,7 @@ class ECPaymentIssuingServiceEventHandlerSpec
             amountTran = AmountTran(44),
           ),
           issuingServicePaymentRequest1,
-          cause = new BusinessException(UnpredictableError()),
+          failureMessage = UnpredictableError(),
           date.now(),
         )
 
@@ -595,7 +594,7 @@ class ECPaymentIssuingServiceEventHandlerSpec
           issuingServiceCancel,
           issuingServicePayCredential,
           Option(issuingServiceResponseErr),
-          new BusinessException(IssuingServiceServerError("承認取消送信")),
+          IssuingServiceServerError("承認取消送信"),
           issuingServicePaymentRequest1,
           acquirerReversalRequestParameter,
           saleDateTime,
@@ -679,7 +678,7 @@ class ECPaymentIssuingServiceEventHandlerSpec
           issuingServiceCancel,
           issuingServicePayCredential,
           None,
-          new BusinessException(IssuingServiceServerError("承認取消送信")),
+          IssuingServiceServerError("承認取消送信"),
           issuingServicePaymentRequest1,
           acquirerReversalRequestParameter,
           saleDateTime,

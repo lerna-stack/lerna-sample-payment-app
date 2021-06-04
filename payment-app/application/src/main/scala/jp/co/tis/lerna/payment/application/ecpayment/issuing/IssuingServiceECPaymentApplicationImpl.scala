@@ -7,9 +7,12 @@ import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.IssuingServiceECPayment
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model.{
   PaymentCancelParameter,
   PaymentParameter,
+  SettlementFailureResponse,
+  SettlementResponse,
   SettlementSuccessResponse,
 }
 import jp.co.tis.lerna.payment.adapter.issuing.IssuingServiceGateway
+import jp.co.tis.lerna.payment.adapter.util.exception.BusinessException
 import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.PaymentActor.Sharding
 import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.{ Cancel, Settle }
 import jp.co.tis.lerna.payment.readmodel.JDBCService
@@ -42,6 +45,8 @@ class IssuingServiceECPaymentApplicationImpl(
 )(implicit val system: ActorSystem)
     extends IssuingServiceECPaymentApplication {
 
+  import system.dispatcher
+
   implicit val timeout: Timeout =
     Timeout.durationToTimeout(
       config.getDuration("jp.co.tis.lerna.payment.application.ecpayment.issuing.payment-timeout").asScala,
@@ -58,7 +63,10 @@ class IssuingServiceECPaymentApplicationImpl(
       paymentParameter.orderId,
       paymentParameter.amountTran,
     )
-    AtLeastOnceDelivery.askTo(destination = shardRegion, command).mapTo[SettlementSuccessResponse]
+    AtLeastOnceDelivery.askTo(destination = shardRegion, command).mapTo[SettlementResponse].flatMap {
+      case successResponse: SettlementSuccessResponse => Future.successful(successResponse)
+      case SettlementFailureResponse(message)         => Future.failed(new BusinessException(message))
+    }
   }
 
   override def cancel(
@@ -70,7 +78,10 @@ class IssuingServiceECPaymentApplicationImpl(
       paymentCancelParameter.walletShopId,
       paymentCancelParameter.orderId,
     )
-    AtLeastOnceDelivery.askTo(destination = shardRegion, command).mapTo[SettlementSuccessResponse]
+    AtLeastOnceDelivery.askTo(destination = shardRegion, command).mapTo[SettlementResponse].flatMap {
+      case successResponse: SettlementSuccessResponse => Future.successful(successResponse)
+      case SettlementFailureResponse(message)         => Future.failed(new BusinessException(message))
+    }
   }
 
   private val shardRegion =

@@ -3,7 +3,7 @@ package jp.co.tis.lerna.payment.application.ecpayment.issuing.actor
 import java.time
 import java.time.LocalDateTime
 
-import akka.actor.{ ActorRef, ActorSystem, Cancellable, Props, ReceiveTimeout, Status }
+import akka.actor.{ ActorRef, ActorSystem, Cancellable, Props, ReceiveTimeout }
 import akka.cluster.Cluster
 import akka.cluster.sharding.ShardRegion.EntityId
 import akka.cluster.sharding.{ ClusterSharding, ClusterShardingSettings, ShardRegion }
@@ -38,7 +38,7 @@ import jp.co.tis.lerna.payment.utility.AppRequestContext
 import lerna.log.AppActorLogging
 import lerna.util.akka
 import lerna.util.akka.AtLeastOnceDelivery.AtLeastOnceDeliveryRequest
-import lerna.util.akka.{ ActorStateBase, AtLeastOnceDelivery, ProcessingTimeout, ReplyTo }
+import lerna.util.akka.{ ActorStateBase, ProcessingTimeout, ReplyTo }
 import lerna.util.lang.Equals._
 import lerna.util.time.LocalDateTimeFactory
 import lerna.util.trace.TraceId
@@ -165,7 +165,6 @@ class PaymentActor(
     with MultiTenantShardingPersistenceIdHelper
     with AppActorLogging {
 
-  import PaymentActor.Sharding
   import lerna.util.time.JavaDurationConverters._
 
   // actor(self)が終了していると、context === null となり context.dispatcher を取得できなく Future#map が NPE となる問題対策で、 dispatcher を変数に束縛しておく
@@ -238,9 +237,7 @@ class PaymentActor(
         )
         replyAndStopSelf(
           sender,
-          Status.Failure(
-            new BusinessException(msg),
-          ),
+          SettlementFailureResponse(msg),
         )
 
       case request @ AtLeastOnceDeliveryRequest(payRequest: Settle) =>
@@ -267,11 +264,11 @@ class PaymentActor(
 
           resultFuture onComplete { triedResult =>
             val result: Either[
-              BusinessException,
+              OnlineProcessingFailureMessage,
               (
                   IssuingServicePayCredential,
                   AuthorizationRequestParameter,
-                  Either[BusinessException, IssuingServiceResponse],
+                  Either[OnlineProcessingFailureMessage, IssuingServiceResponse],
               ),
             ] = triedResult.toEither.left.map(handleException)
             sendToSelf(SettlementResult(result))
@@ -312,19 +309,19 @@ class PaymentActor(
         )
 
       }
-      result: Either[BusinessException, IssuingServiceResponse] <- gateway
+      result: Either[OnlineProcessingFailureMessage, IssuingServiceResponse] <- gateway
         .requestAuthorization(request).transform {
           // Gatewayエラーの場合のみ、非同期処理で、RDBMSに登録必要
           case Success(response) =>
             Success(Right(response))
 
           case Failure(ex: BusinessException) =>
-            Success(Left(ex))
+            Success(Left(ex.message))
 
           case Failure(exception) =>
             val message = UnpredictableError()
             logger.warn(exception, "{}: {}", message.messageId, message.messageContent)
-            Success(Left(new BusinessException(message)))
+            Success(Left(message))
         }
     } yield (payCredential, request, result)
   }
@@ -349,20 +346,20 @@ class PaymentActor(
 
       // 決済要求リクエスト前に失敗
       case event: SettlementAborted =>
-        Failed(event.cause)
+        Failed(event.failureMessage)
 
       // 決済失敗
       case event: SettlementFailureConfirmed =>
-        Failed(event.cause)
+        Failed(event.failureMessage)
 
       case _: SettlementTimeoutDetected =>
         val message = UnpredictableError()
-        Failed(new BusinessException(message))
+        Failed(message)
 
     }
 
-    override def receiveCommand: Receive = {
-      case request @ AtLeastOnceDeliveryRequest(paymentResult: SettlementResult) =>
+    override def receiveCommand: Receive = stashStopActorMessage orElse {
+      case paymentResult: SettlementResult =>
         import paymentResult.{ appRequestContext, processingContext }
 
         processingTimeoutTimer.cancel()
@@ -391,7 +388,7 @@ class PaymentActor(
                     // 処理が完了の時点で、たまったPay Commandをunstash
                     // 目的：処理中で受けったPay Commandに対し、同じ処理結果を返すため
                     persistAndReply(event, res) {
-                      request.accept()
+                      // do nothing
                     }
                   case errorCode =>
                     // 承認売上送信エラーなし(200) でも エラーコード "00000"以外、エラーにする
@@ -401,7 +398,6 @@ class PaymentActor(
 
                     val message = IssuingServiceServerError("承認売上送信", errorCode)
                     logger.warn(s"${message.messageId}: ${message.messageContent}")
-                    val failure = new BusinessException(message)
 
                     val event =
                       SettlementFailureConfirmed(
@@ -409,42 +405,42 @@ class PaymentActor(
                         payCredential,
                         requestInfo,
                         req,
-                        failure,
+                        message,
                         systemTime,
                       )
 
-                    persistAndReply(event, Status.Failure(failure)) {
-                      request.accept()
+                    persistAndReply(event, SettlementFailureResponse(message)) {
+                      // do nothing
                     }
                 }
 
-              case Left(businessException) =>
+              case Left(message) =>
                 persistAndReply(
                   SettlementFailureConfirmed(
                     None,
                     payCredential,
                     requestInfo,
                     req,
-                    businessException,
+                    message,
                     systemTime,
                   ),
-                  Status.Failure(businessException),
+                  SettlementFailureResponse(message),
                 ) {
-                  request.accept()
+                  // do nothing
                 }
             }
 
           // Gatewayから何のレスポンスEntity(JSON)もなし
           // 承認売上も、障害取消も
-          case Left(businessException) =>
+          case Left(message) =>
             persistAndReply(
               SettlementAborted(
-                businessException,
+                message,
                 systemTime,
               ),
-              Status.Failure(businessException),
+              SettlementFailureResponse(message),
             ) {
-              request.accept()
+              // do nothing
             }
         }
 
@@ -557,19 +553,19 @@ class PaymentActor(
         paymentId = paymentId,                // (会員ごと)決済番号
         terminalId = payCredential.terminalId,// 端末識別番号
       )
-      issuingServicePaymentResult: Either[BusinessException, IssuingServiceResponse] <- gateway
+      issuingServicePaymentResult: Either[OnlineProcessingFailureMessage, IssuingServiceResponse] <- gateway
         .requestAcquirerReversal(acquirerReversalRequestParameter, originalRequestParameter).transform {
           // Gatewayエラーの場合のみ、非同期処理で、RDBMSに登録必要
           case Success(response) =>
             Success(Right(response))
 
           case Failure(ex: BusinessException) =>
-            Success(Left(ex))
+            Success(Left(ex.message))
 
           case Failure(exception) =>
             val message = UnpredictableError()
             logger.warn(exception, "{}: {}", message.messageId, message.messageContent)
-            Success(Left(new BusinessException(message)))
+            Success(Left(message))
         }
     } yield (
       issuingServicePaymentResult,
@@ -632,8 +628,9 @@ class PaymentActor(
     }
 
     override def receiveCommand: Receive =
+      stashStopActorMessage orElse
       handleCancelProcessingTimeoutMessage(processingTimeoutMessage) orElse {
-        case request @ AtLeastOnceDeliveryRequest(cancelResult: CancelResult) =>
+        case cancelResult: CancelResult =>
           processingTimeoutTimer.cancel()
           import cancelResult.{ appRequestContext, processingContext }
           cancelResult.result match {
@@ -659,7 +656,7 @@ class PaymentActor(
                       )
 
                       persistAndReply(event, res) {
-                        request.accept()
+                        // do nothing
                       }
 
                     case "TW005" => // 取消対象取引が既に取消済
@@ -680,8 +677,8 @@ class PaymentActor(
                       )
                       val message = IssuingServiceAlreadyCanceled()
                       logger.debug(s"${message.messageId}: ${message.messageContent}")
-                      persistAndReply(event, Status.Failure(new BusinessException(message))) {
-                        request.accept()
+                      persistAndReply(event, SettlementFailureResponse(message)) {
+                        // do nothing
                       }
 
                     case errorCode =>
@@ -691,49 +688,48 @@ class PaymentActor(
 
                       val message = IssuingServiceServerError("承認取消送信", errorCode)
                       logger.warn(s"${message.messageId}: ${message.messageContent}")
-                      val failure = new BusinessException(message)
                       val event =
                         CancelFailureConfirmed(
                           paymentResponse,
                           requestInfo,
                           payCredential,
                           Option(response),
-                          failure,
+                          message,
                           originalRequest,
                           acquirerReversalRequestParameter,
                           saleDateTime,
                           systemDateTime,
                         )
-                      persistAndReply(event, Status.Failure(failure)) {
-                        request.accept()
+                      persistAndReply(event, SettlementFailureResponse(message)) {
+                        // do nothing
                       }
                   }
 
-                case Left(businessException) =>
+                case Left(message) =>
                   val cancelFailedEvent =
                     CancelFailureConfirmed(
                       paymentResponse,
                       requestInfo,
                       payCredential,
                       None,
-                      businessException,
+                      message,
                       originalRequest,
                       acquirerReversalRequestParameter,
                       saleDateTime,
                       systemDateTime,
                     )
 
-                  persistAndReply(cancelFailedEvent, Status.Failure(businessException)) {
-                    request.accept()
+                  persistAndReply(cancelFailedEvent, SettlementFailureResponse(message)) {
+                    // do nothing
                   }
               }
 
-            case Left(businessException) =>
+            case Left(message) =>
               // 非同期処理対象外
               val cancelFailedEvent =
                 CancelAborted()
-              persistAndReply(cancelFailedEvent, Status.Failure(businessException)) {
-                request.accept()
+              persistAndReply(cancelFailedEvent, SettlementFailureResponse(message)) {
+                // do nothing
               }
           }
 
@@ -761,8 +757,8 @@ class PaymentActor(
   }
 
   // 永続化およびPresentationへの返事
-  private def persistAndReply(event: ECPaymentIssuingServiceEvent, msg: Any)(afterPersist: => Unit)(implicit
-      processingContext: ProcessingContext,
+  private def persistAndReply(event: ECPaymentIssuingServiceEvent, msg: SettlementResponse)(afterPersist: => Unit)(
+      implicit processingContext: ProcessingContext,
   ): Unit = {
     // 処理が完了の時点で、たまったPay Commandをunstash
     // 目的：処理中で受けったPay Commandに対し、同じ処理結果を返すため
@@ -791,7 +787,7 @@ class PaymentActor(
   }
 
   case class Failed(
-      cause: BusinessException,
+      message: OnlineProcessingFailureMessage,
   ) extends State {
     override def updated: EventHandler = PartialFunction.empty
 
@@ -804,7 +800,7 @@ class PaymentActor(
         logger.info(
           s"status: failed, msg: $msg",
         )
-        replyAndStopSelf(sender(), Status.Failure(cause))
+        replyAndStopSelf(sender(), SettlementFailureResponse(message))
     }
   }
 
@@ -888,18 +884,27 @@ class PaymentActor(
     *
     * @param cause 異常
     */
-  private def handleException(cause: Throwable)(implicit appRequestContext: AppRequestContext): BusinessException = {
+  private def handleException(
+      cause: Throwable,
+  )(implicit appRequestContext: AppRequestContext): OnlineProcessingFailureMessage = {
     cause match {
-      case exception: BusinessException => exception
+      case exception: BusinessException => exception.message
       case ex =>
         val message = UnpredictableError()
         logger.warn(ex, "{}: {}", message.messageId, message.messageContent)
-        new BusinessException(message)
+        message
     }
   }
 
   override def receiveRecover: Receive = {
     case event: ECPaymentIssuingServiceEvent => updateState(event)
+  }
+
+  private def stashStopActorMessage: Receive = {
+    case StopActor =>
+      import lerna.util.tenant.TenantComponentLogContext.logContext
+      logger.info(s"[state: $state, receive: StopActor] 処理結果待ちのため終了処理を保留します")
+      stash()
   }
 
   // 未処理のメッセージ
@@ -912,11 +917,11 @@ class PaymentActor(
       case request @ AtLeastOnceDeliveryRequest(payRequest: Settle) => // DOS攻撃防止のため
         request.accept()
         val msg = ValidationFailure("walletShopId または orderId が不正です")
-        replyAndStopSelf(sender, Status.Failure(new BusinessException(msg)))
+        replyAndStopSelf(sender, SettlementFailureResponse(msg))
       case request @ AtLeastOnceDeliveryRequest(payRequest: Cancel) => // DOS攻撃防止のため
         request.accept()
         val msg = ValidationFailure("walletShopId または orderId が不正です")
-        replyAndStopSelf(sender, Status.Failure(new BusinessException(msg)))
+        replyAndStopSelf(sender, SettlementFailureResponse(msg))
       case ReceiveTimeout =>
         implicit val appRequestContext: AppRequestContext = AppRequestContext(TraceId.unknown, tenant)
         logger.info("Actorの生成から一定時間経過しました。Actorを停止します。")
@@ -927,31 +932,20 @@ class PaymentActor(
     }
   }
 
-  // actor(self)が終了していると、context === null となり context.system を取得できないので、 system は変数に束縛しておく
-  implicit private val system: ActorSystem = context.system
-
-  // ShardRegion の Graceful shutdown 時用
-  // ShardRegion の shutdown 時に ShardRegion に転送されたメッセージは drop される可能性があるため、proxy 経由とすることで drop を回避する
-  // ShardRegionProxy ではなく ShardRegion 宛に送ると、リトライがあっても ShardRegion が終了していると DeadLetter になる点に注意
-  // ※ Akka 2.5.22 時点での実装依存(SelfDataCenter)
-  private lazy val selfDataCenter   = Cluster(system).settings.SelfDataCenter
-  private lazy val shardRegionProxy = ClusterSharding(system).shardRegionProxy(Sharding.typeName, selfDataCenter)
-
-  protected def sendToSelf(message: InnerCommand): Unit = {
-    import message.appRequestContext
-    AtLeastOnceDelivery.tellTo(shardRegionProxy, message)
+  private def sendToSelf(message: InnerCommand): Unit = {
+    self ! message
   }
 
   /** 応答とその他処理
     * @param result 応答メッセージ
     */
-  private def replyResult(result: Any)(implicit processingContext: ProcessingContext): Unit = {
+  private def replyResult(result: SettlementResponse)(implicit processingContext: ProcessingContext): Unit = {
     unstashAll()
     replyAndStopSelf(processingContext.replyTo.actorRef, result)
   }
 
   // 返事およびアウターストップ
-  private def replyAndStopSelf(replyTo: ActorRef, msg: Any): Unit = {
+  private def replyAndStopSelf(replyTo: ActorRef, msg: SettlementResponse): Unit = {
     replyTo ! msg
     stopSelfSafely()
   }

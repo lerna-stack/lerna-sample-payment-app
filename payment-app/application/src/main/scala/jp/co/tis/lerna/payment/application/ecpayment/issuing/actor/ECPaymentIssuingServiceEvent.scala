@@ -8,7 +8,7 @@ import jp.co.tis.lerna.payment.adapter.issuing.model.{
   AuthorizationRequestParameter,
   IssuingServiceResponse,
 }
-import jp.co.tis.lerna.payment.adapter.util.exception.BusinessException
+import jp.co.tis.lerna.payment.adapter.util.OnlineProcessingFailureMessage
 import jp.co.tis.lerna.payment.adapter.wallet.CustomerId
 import jp.co.tis.lerna.payment.application.ecpayment.issuing.IssuingServicePayCredential
 import jp.co.tis.lerna.payment.application.readmodelupdater.salesdetail.model.{
@@ -56,7 +56,7 @@ final case class SettlementSuccessConfirmed(
 // 決済要求前に失敗
 // 非同期処理対象外
 final case class SettlementAborted(
-    cause: BusinessException,
+    failureMessage: OnlineProcessingFailureMessage,
     systemDate: LocalDateTime,
 )(implicit val traceId: TraceId)
     extends ECPaymentIssuingServiceEvent
@@ -67,7 +67,7 @@ final case class SettlementFailureConfirmed(
     payCredential: IssuingServicePayCredential,           // RDBMSからの認証情報
     requestInfo: Settle,                                  // presentation -> actorのリクエスト
     issuingServiceRequest: AuthorizationRequestParameter, // IssuingService へのリクエスト
-    cause: BusinessException,                             // 例外情報、IssuingService からの生レスポンス含め場合ある
+    failureMessage: OnlineProcessingFailureMessage,       // 例外情報、IssuingService からの生レスポンス含め場合ある
     systemDate: LocalDateTime,                            // システム日付
 )(implicit val traceId: TraceId)
     extends ECPaymentIssuingServiceEvent
@@ -106,7 +106,7 @@ final case class CancelFailureConfirmed(
     requestInfo: Cancel,                                                // 取消のリクエスト情報
     payCredential: IssuingServicePayCredential,                         // 外部システム呼び出しための情報
     cancelResponse: Option[IssuingServiceResponse],                     // IssuingService からのレスポンス、障害取消を含める
-    cause: BusinessException,                                           // クライアントへのレスポンス、unstashされたリクエスト用、障害情報
+    failureMessage: OnlineProcessingFailureMessage,                     // クライアントへのレスポンス、unstashされたリクエスト用、障害情報
     originalRequest: AuthorizationRequestParameter,                     // IssuingService への決済リクエスト
     acquirerReversalRequestParameter: AcquirerReversalRequestParameter, // IssuingService への取消リクエスト
     saleDateTime: LocalDateTime,                                        // 買上日時

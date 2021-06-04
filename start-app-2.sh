@@ -16,7 +16,6 @@ sbt \
 -Djp.co.tis.lerna.payment.readmodel.rdbms.default.db.password=password \
 -Djp.co.tis.lerna.payment.gateway.issuing.default.base-url="http://127.0.0.1:8083" \
 -Djp.co.tis.lerna.payment.gateway.wallet-system.default.base-url="http://127.0.0.1:8083" \
--Dkamon.system-metrics.host.sigar-native-folder=native/2 \
 -Dakka.remote.artery.canonical.hostname="127.0.0.2" \
 -Dpublic-internet.http.interface="127.0.0.2" \
 -Dprivate-internet.http.interface="127.0.0.2" \
