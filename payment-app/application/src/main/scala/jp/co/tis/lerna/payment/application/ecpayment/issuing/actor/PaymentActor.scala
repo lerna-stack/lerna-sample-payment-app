@@ -47,6 +47,19 @@ import scala.util.{ Failure, Success }
   */
 object PaymentActor extends AppTypedActorLogging {
 
+  private[actor] final case class Setup(
+      gateway: IssuingServiceGateway,
+      jdbcService: JDBCService,
+      tables: Tables,
+      dateTimeFactory: LocalDateTimeFactory,
+      transactionIdFactory: TransactionIdFactory,
+      paymentIdFactory: PaymentIdFactory,
+      context: ActorContext[Command],
+      timers: TimerScheduler[Command],
+      shard: ActorRef[ClusterSharding.ShardCommand],
+      logger: AppLogger,
+  )
+
   object Sharding {
 
     def startClusterSharding(
@@ -70,8 +83,7 @@ object PaymentActor extends AppTypedActorLogging {
             Behaviors.setup(context => {
               Behaviors.withTimers(timers => {
                 withLogger(logger => {
-                  val actor = new PaymentActor(
-                    config,
+                  val setup = Setup(
                     gateway,
                     jdbcService,
                     tables,
@@ -80,8 +92,13 @@ object PaymentActor extends AppTypedActorLogging {
                     paymentIdFactory,
                     context,
                     timers,
-                    entityContext,
+                    entityContext.shard,
                     logger,
+                  )
+                  val actor = new PaymentActor(
+                    config,
+                    entityContext,
+                    setup,
                   )
                   actor.eventSourcedBehavior()
                 })
@@ -97,33 +114,25 @@ object PaymentActor extends AppTypedActorLogging {
   }
 }
 
-/** アクタークラス
-  *
-  * @param config 設定ファイルアクセス用
-  * @param gateway 外部システム呼び出し用
-  * @param jdbcService RDBMSアクセス用
-  * @param tables RDBMSテーブルアクセス用
-  * @param dateTimeFactory システム日時取得用
-  * @param transactionIdFactory 取引ID採番
-  * @param paymentIdFactory　(会員ごと)決済番号採番
-  */
-class PaymentActor(
+class PaymentActor private[actor] (
     config: Config,
-    gateway: IssuingServiceGateway,
-    jdbcService: JDBCService,
-    tables: Tables,
-    dateTimeFactory: LocalDateTimeFactory,
-    transactionIdFactory: TransactionIdFactory,
-    paymentIdFactory: PaymentIdFactory,
-    context: ActorContext[Command],
-    timers: TimerScheduler[Command],
     val entityContext: EntityContext[Command],
-    logger: AppLogger,
+    setup: PaymentActor.Setup,
 ) extends MultiTenantPersistentSupport
     with MultiTenantShardingSupport[Command] {
 
   import context.executionContext
   import lerna.util.time.JavaDurationConverters._
+
+  private val gateway: IssuingServiceGateway             = setup.gateway
+  private val jdbcService: JDBCService                   = setup.jdbcService
+  private val tables: Tables                             = setup.tables
+  private val dateTimeFactory: LocalDateTimeFactory      = setup.dateTimeFactory
+  private val transactionIdFactory: TransactionIdFactory = setup.transactionIdFactory
+  private val paymentIdFactory: PaymentIdFactory         = setup.paymentIdFactory
+  private val context: ActorContext[Command]             = setup.context
+  private val timers: TimerScheduler[Command]            = setup.timers
+  private val logger: AppLogger                          = setup.logger
 
   val receiveTimeout: time.Duration =
     context.system.settings.config

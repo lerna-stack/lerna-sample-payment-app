@@ -892,8 +892,12 @@ class PaymentActorSpec
       Behaviors.setup[Command](context => {
         Behaviors.withTimers(timers => {
           withLogger(logger => {
-            val actor = new PaymentActor(
-              config,
+            val entityContext = new EntityContext[Command](
+              EntityTypeKey("dummy"),
+              entityId = MultiTenantShardingSupportTestHelper.generateEntityId(),
+              shard = TestProbe().ref.toTyped,
+            )
+            val setup = PaymentActor.Setup(
               gateway,
               jdbcService,
               tables,
@@ -902,12 +906,13 @@ class PaymentActorSpec
               paymentIdFactory,
               context,
               timers,
-              new EntityContext(
-                EntityTypeKey("dummy"),
-                entityId = MultiTenantShardingSupportTestHelper.generateEntityId(),
-                shard = TestProbe().ref.toTyped,
-              ),
+              entityContext.shard,
               logger,
+            )
+            val actor = new PaymentActor(
+              config,
+              entityContext,
+              setup,
             )
             actor.eventSourcedBehavior()
           })
