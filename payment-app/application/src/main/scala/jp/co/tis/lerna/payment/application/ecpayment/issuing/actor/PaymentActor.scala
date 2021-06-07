@@ -194,10 +194,9 @@ class PaymentActor(
         logger.debug(
           s"${msg.messageId} ${msg.messageContent} Cancel request id ${cancelRequest.walletShopId.value} is not found!",
         )
-        replyAndStopSelf(
-          cancelRequest.replyTo,
-          SettlementFailureResponse(msg),
-        )
+
+        stopSelfSafely()
+        Effect.reply(cancelRequest.replyTo)(SettlementFailureResponse(msg))
 
       case payRequest: Settle =>
         import payRequest.appRequestContext
@@ -483,7 +482,8 @@ class PaymentActor(
         msg.accept()
         logger.info("すでに処理済みのため、前回の処理結果を返します(前回とキーが同じリクエストが来ました)")
 
-        replyAndStopSelf(msg.replyTo, settlementSuccessResponse)
+        stopSelfSafely()
+        Effect.reply(msg.replyTo)(settlementSuccessResponse)
 
       case msg: Cancel =>
         import msg.appRequestContext
@@ -775,7 +775,8 @@ class PaymentActor(
         } else {
           SettlementFailureResponse(ForbiddenFailure())
         }
-        replyAndStopSelf(msg.replyTo, response)
+        stopSelfSafely()
+        Effect.reply(msg.replyTo)(response)
 
       case StopActor               => Effect.stop().thenNoReply()
       case ReceiveTimeout          => handleReceiveTimeout()
@@ -783,7 +784,9 @@ class PaymentActor(
       case _: InnerBusinessCommand => Effect.unhandled.thenNoReply()
       case command: Settle =>
         val message = ValidationFailure("walletShopId または orderId が不正です")
-        replyAndStopSelf(command.replyTo, SettlementFailureResponse(message))
+        stopSelfSafely()
+        Effect.reply(command.replyTo)(SettlementFailureResponse(message))
+
     }
   }
 
@@ -804,7 +807,8 @@ class PaymentActor(
         logger.info(
           s"status: failed, msg: $msg",
         )
-        replyAndStopSelf(msg.replyTo, SettlementFailureResponse(message))
+        stopSelfSafely()
+        Effect.reply(msg.replyTo)(SettlementFailureResponse(message))
 
       case StopActor               => Effect.stop().thenNoReply()
       case ReceiveTimeout          => handleReceiveTimeout()
@@ -812,7 +816,9 @@ class PaymentActor(
       case _: InnerBusinessCommand => Effect.unhandled.thenNoReply()
       case command: Cancel =>
         val message = ValidationFailure("walletShopId または orderId が不正です")
-        replyAndStopSelf(command.replyTo, SettlementFailureResponse(message))
+        stopSelfSafely()
+        Effect.reply(command.replyTo)(SettlementFailureResponse(message))
+
     }
   }
 
@@ -913,12 +919,6 @@ class PaymentActor(
     logger.info("Actorの生成から一定時間経過しました。Actorを停止します。")
     stopSelfSafely()
     Effect.noReply
-  }
-
-  // 返事およびアウターストップ
-  private def replyAndStopSelf(replyTo: ActorRef[SettlementResponse], msg: SettlementResponse): ReplyEffect = {
-    stopSelfSafely()
-    Effect.reply(replyTo)(msg)
   }
 
   private def stopSelfSafely(): Unit = {
