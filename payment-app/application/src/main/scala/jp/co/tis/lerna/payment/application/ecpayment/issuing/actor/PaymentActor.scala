@@ -917,9 +917,8 @@ class PaymentActor(
 
   // 返事およびアウターストップ
   private def replyAndStopSelf(replyTo: ActorRef[SettlementResponse], msg: SettlementResponse): ReplyEffect = {
-    Effect.none
-      .thenRun((_: State) => stopSelfSafely())
-      .thenReply(replyTo)(_ => msg)
+    stopSelfSafely()
+    Effect.reply(replyTo)(msg)
   }
 
   private def stopSelfSafely(): Unit = {
