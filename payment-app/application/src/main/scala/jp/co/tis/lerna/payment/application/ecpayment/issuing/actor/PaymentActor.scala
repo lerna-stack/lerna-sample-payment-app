@@ -361,9 +361,10 @@ class PaymentActor(
 
                     // 処理が完了の時点で、たまったPay Commandをunstash
                     // 目的：処理中で受けったPay Commandに対し、同じ処理結果を返すため
-                    persistAndReply(event, res) {
-                      // do nothing
-                    }
+                    Effect
+                      .persist(event)
+                      .thenReply(processingContext.replyTo)((_: State) => res)
+                      .thenUnstashAll()
                   case errorCode =>
                     // 承認売上送信エラーなし(200) でも エラーコード "00000"以外、エラーにする
                     logger.debug(
@@ -383,39 +384,38 @@ class PaymentActor(
                         systemTime,
                       )
 
-                    persistAndReply(event, SettlementFailureResponse(message)) {
-                      // do nothing
-                    }
+                    Effect
+                      .persist(event)
+                      .thenReply(processingContext.replyTo)((_: State) => SettlementFailureResponse(message))
+                      .thenUnstashAll()
                 }
 
               case Left(message) =>
-                persistAndReply(
-                  SettlementFailureConfirmed(
-                    None,
-                    payCredential,
-                    requestInfo,
-                    req,
-                    message,
-                    systemTime,
-                  ),
-                  SettlementFailureResponse(message),
-                ) {
-                  // do nothing
-                }
+                val event = SettlementFailureConfirmed(
+                  None,
+                  payCredential,
+                  requestInfo,
+                  req,
+                  message,
+                  systemTime,
+                )
+                Effect
+                  .persist(event)
+                  .thenReply(processingContext.replyTo)((_: State) => SettlementFailureResponse(message))
+                  .thenUnstashAll()
             }
 
           // Gatewayから何のレスポンスEntity(JSON)もなし
           // 承認売上も、障害取消も
           case Left(message) =>
-            persistAndReply(
-              SettlementAborted(
-                message,
-                systemTime,
-              ),
-              SettlementFailureResponse(message),
-            ) {
-              // do nothing
-            }
+            val event = SettlementAborted(
+              message,
+              systemTime,
+            )
+            Effect
+              .persist(event)
+              .thenReply(processingContext.replyTo)((_: State) => SettlementFailureResponse(message))
+              .thenUnstashAll()
         }
 
       case msg: Settle =>
@@ -660,9 +660,10 @@ class PaymentActor(
                       systemDateTime,
                     )
 
-                    persistAndReply(event, res) {
-                      // do nothing
-                    }
+                    Effect
+                      .persist(event)
+                      .thenReply(processingContext.replyTo)((_: State) => res)
+                      .thenUnstashAll()
 
                   case "TW005" => // 取消対象取引が既に取消済
                     val res = SettlementSuccessResponse()
@@ -682,9 +683,10 @@ class PaymentActor(
                     )
                     val message = IssuingServiceAlreadyCanceled()
                     logger.debug(s"${message.messageId}: ${message.messageContent}")
-                    persistAndReply(event, SettlementFailureResponse(message)) {
-                      // do nothing
-                    }
+                    Effect
+                      .persist(event)
+                      .thenReply(processingContext.replyTo)((_: State) => SettlementFailureResponse(message))
+                      .thenUnstashAll()
 
                   case errorCode =>
                     logger.debug(
@@ -705,9 +707,10 @@ class PaymentActor(
                         saleDateTime,
                         systemDateTime,
                       )
-                    persistAndReply(event, SettlementFailureResponse(message)) {
-                      // do nothing
-                    }
+                    Effect
+                      .persist(event)
+                      .thenReply(processingContext.replyTo)((_: State) => SettlementFailureResponse(message))
+                      .thenUnstashAll()
                 }
 
               case Left(message) =>
@@ -724,18 +727,20 @@ class PaymentActor(
                     systemDateTime,
                   )
 
-                persistAndReply(cancelFailedEvent, SettlementFailureResponse(message)) {
-                  // do nothing
-                }
+                Effect
+                  .persist(cancelFailedEvent)
+                  .thenReply(processingContext.replyTo)((_: State) => SettlementFailureResponse(message))
+                  .thenUnstashAll()
             }
 
           case Left(message) =>
             // 非同期処理対象外
             val cancelFailedEvent =
               CancelAborted()
-            persistAndReply(cancelFailedEvent, SettlementFailureResponse(message)) {
-              // do nothing
-            }
+            Effect
+              .persist(cancelFailedEvent)
+              .thenReply(processingContext.replyTo)((_: State) => SettlementFailureResponse(message))
+              .thenUnstashAll()
         }
 
       case msg: Cancel =>
@@ -748,18 +753,6 @@ class PaymentActor(
       case _: InnerBusinessCommand => Effect.unhandled.thenNoReply()
       case _: Settle               => Effect.stash()
     }
-  }
-
-  // 永続化およびPresentationへの返事
-  private def persistAndReply(event: ECPaymentIssuingServiceEvent, msg: SettlementResponse)(afterPersist: => Unit)(
-      implicit processingContext: ProcessingContext,
-  ): ReplyEffect = {
-    // 処理が完了の時点で、たまったPay Commandをunstash
-    // 目的：処理中で受けったPay Commandに対し、同じ処理結果を返すため
-    Effect
-      .persist(event)
-      .thenReply(processingContext.replyTo)((_: State) => msg)
-      .thenUnstashAll()
   }
 
   case class Canceled(
