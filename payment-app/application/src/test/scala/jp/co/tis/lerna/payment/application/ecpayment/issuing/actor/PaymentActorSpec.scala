@@ -897,7 +897,7 @@ class PaymentActorSpec
               entityId = MultiTenantShardingSupportTestHelper.generateEntityId(),
               shard = TestProbe().ref.toTyped,
             )
-            val setup = PaymentActor.Setup(
+            implicit val setup: PaymentActor.Setup = PaymentActor.Setup(
               gateway,
               jdbcService,
               tables,
@@ -912,7 +912,6 @@ class PaymentActorSpec
             val actor = new PaymentActor(
               config,
               entityContext,
-              setup,
             )
             actor.eventSourcedBehavior()
           })

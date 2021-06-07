@@ -19,6 +19,7 @@ import jp.co.tis.lerna.payment.adapter.util._
 import jp.co.tis.lerna.payment.adapter.util.exception.BusinessException
 import jp.co.tis.lerna.payment.adapter.wallet.{ ClientId, CustomerId, WalletId }
 import jp.co.tis.lerna.payment.application.ActorPrefix
+import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.PaymentActor.Setup
 import jp.co.tis.lerna.payment.application.ecpayment.issuing.{
   IssuingServicePayCredential,
   PaymentIdFactory,
@@ -83,7 +84,7 @@ object PaymentActor extends AppTypedActorLogging {
             Behaviors.setup(context => {
               Behaviors.withTimers(timers => {
                 withLogger(logger => {
-                  val setup = Setup(
+                  implicit val setup: Setup = Setup(
                     gateway,
                     jdbcService,
                     tables,
@@ -98,7 +99,6 @@ object PaymentActor extends AppTypedActorLogging {
                   val actor = new PaymentActor(
                     config,
                     entityContext,
-                    setup,
                   )
                   actor.eventSourcedBehavior()
                 })
@@ -117,30 +117,20 @@ object PaymentActor extends AppTypedActorLogging {
 class PaymentActor private[actor] (
     config: Config,
     val entityContext: EntityContext[Command],
-    setup: PaymentActor.Setup,
-) extends MultiTenantPersistentSupport
+)(implicit setup: PaymentActor.Setup)
+    extends MultiTenantPersistentSupport
     with MultiTenantShardingSupport[Command] {
 
-  import context.executionContext
+  import setup.context.executionContext
   import lerna.util.time.JavaDurationConverters._
 
-  private val gateway: IssuingServiceGateway             = setup.gateway
-  private val jdbcService: JDBCService                   = setup.jdbcService
-  private val tables: Tables                             = setup.tables
-  private val dateTimeFactory: LocalDateTimeFactory      = setup.dateTimeFactory
-  private val transactionIdFactory: TransactionIdFactory = setup.transactionIdFactory
-  private val paymentIdFactory: PaymentIdFactory         = setup.paymentIdFactory
-  private val context: ActorContext[Command]             = setup.context
-  private val timers: TimerScheduler[Command]            = setup.timers
-  private val logger: AppLogger                          = setup.logger
-
   val receiveTimeout: time.Duration =
-    context.system.settings.config
+    setup.context.system.settings.config
       .getDuration("jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.receive-timeout")
 
-  context.setReceiveTimeout(receiveTimeout.asScala, ReceiveTimeout)
+  setup.context.setReceiveTimeout(receiveTimeout.asScala, ReceiveTimeout)
 
-  val askTimeout: FiniteDuration = context.system.settings.config
+  def askTimeout(implicit setup: Setup): FiniteDuration = setup.context.system.settings.config
     .getDuration("jp.co.tis.lerna.payment.application.ecpayment.issuing.payment-timeout").asScala
 
   private val errCodeOk = "00000"
@@ -164,21 +154,21 @@ class PaymentActor private[actor] (
 
   // State
   sealed trait State {
-    def applyEvent(event: ECPaymentIssuingServiceEvent): State
-    def applyCommand(cmd: Command): ReplyEffect
+    def applyEvent(event: ECPaymentIssuingServiceEvent)(implicit setup: Setup): State
+    def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect
   }
 
   case class WaitingForRequest() extends State {
-    override def applyEvent(event: ECPaymentIssuingServiceEvent): State = event match {
+    override def applyEvent(event: ECPaymentIssuingServiceEvent)(implicit setup: Setup): State = event match {
       case event: SettlementAccepted =>
         import event.traceId
 
         val processingTimeoutMessage: ProcessingTimeout =
-          ProcessingTimeout(event.systemTime, askTimeout, context.system.settings.config)
+          ProcessingTimeout(event.systemTime, askTimeout, setup.context.system.settings.config)
 
-        timers.startSingleTimer(
+        setup.timers.startSingleTimer(
           msg = processingTimeoutMessage,
-          delay = processingTimeoutMessage.timeLeft(dateTimeFactory),
+          delay = processingTimeoutMessage.timeLeft(setup.dateTimeFactory),
         )
 
         Settling(
@@ -194,13 +184,13 @@ class PaymentActor private[actor] (
 
     }
 
-    override def applyCommand(cmd: Command): ReplyEffect = cmd match {
+    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect = cmd match {
       case cancelRequest: Cancel =>
         cancelRequest.accept()
 
         import cancelRequest.appRequestContext
         val msg = NotFound("決済情報")
-        logger.debug(
+        setup.logger.debug(
           s"${msg.messageId} ${msg.messageContent} Cancel request id ${cancelRequest.walletShopId.value} is not found!",
         )
 
@@ -209,10 +199,10 @@ class PaymentActor private[actor] (
 
       case payRequest: Settle =>
         import payRequest.appRequestContext
-        logger.debug(s"IssuingService : $payRequest")
+        setup.logger.debug(s"IssuingService : $payRequest")
 
         // リクエスト直前の時刻をこちらで作成（変数化）
-        val systemTime = dateTimeFactory.now()
+        val systemTime = setup.dateTimeFactory.now()
 
         implicit val processingContext: ProcessingContext =
           ProcessingContext(
@@ -229,7 +219,7 @@ class PaymentActor private[actor] (
 
             val resultFuture = executePayment(payRequest, systemTime)
 
-            context.pipeToSelf(resultFuture) { triedResult =>
+            setup.context.pipeToSelf(resultFuture) { triedResult =>
               val result: Either[
                 OnlineProcessingFailureMessage,
                 (
@@ -254,21 +244,22 @@ class PaymentActor private[actor] (
       systemTime: LocalDateTime,
   )(implicit
       appRequestContext: AppRequestContext,
+      setup: Setup,
   ) = {
     val customerId = payRequest.customerId
 
     for {
       payCredential <- fetchPayCredential(customerId, payRequest.clientId, payRequest.walletShopId)
-      transactionId <- transactionIdFactory.generate
-      paymentId     <- paymentIdFactory.generateIdFor(customerId)
+      transactionId <- setup.transactionIdFactory.generate
+      paymentId     <- setup.paymentIdFactory.generateIdFor(customerId)
       request = {
-        logger.debug("walletId:" + payCredential.walletId.toString)
-        logger.debug("customerNumber:" + payCredential.customerNumber.toString)
-        logger.debug("memberStoreNameId:" + payCredential.memberStoreId)
-        logger.debug("memberStoreNameEn:" + payCredential.memberStoreNameEn.toString)
-        logger.debug("memberStoreNameJp:" + payCredential.memberStoreNameJp.toString)
-        logger.debug("contractNumber:" + payCredential.contractNumber.toString)
-        logger.debug("terminalId:" + payCredential.terminalId.value)
+        setup.logger.debug("walletId:" + payCredential.walletId.toString)
+        setup.logger.debug("customerNumber:" + payCredential.customerNumber.toString)
+        setup.logger.debug("memberStoreNameId:" + payCredential.memberStoreId)
+        setup.logger.debug("memberStoreNameEn:" + payCredential.memberStoreNameEn.toString)
+        setup.logger.debug("memberStoreNameJp:" + payCredential.memberStoreNameJp.toString)
+        setup.logger.debug("contractNumber:" + payCredential.contractNumber.toString)
+        setup.logger.debug("terminalId:" + payCredential.terminalId.value)
 
         AuthorizationRequestParameter(
           pan = payCredential.housePan,                           // カード番号
@@ -281,7 +272,7 @@ class PaymentActor private[actor] (
         )
 
       }
-      result: Either[OnlineProcessingFailureMessage, IssuingServiceResponse] <- gateway
+      result: Either[OnlineProcessingFailureMessage, IssuingServiceResponse] <- setup.gateway
         .requestAuthorization(request).transform {
           // Gatewayエラーの場合のみ、非同期処理で、RDBMSに登録必要
           case Success(response) =>
@@ -292,7 +283,7 @@ class PaymentActor private[actor] (
 
           case Failure(exception) =>
             val message = UnpredictableError()
-            logger.warn(exception, "{}: {}", message.messageId, message.messageContent)
+            setup.logger.warn(exception, "{}: {}", message.messageId, message.messageContent)
             Success(Left(message))
         }
     } yield (payCredential, request, result)
@@ -303,7 +294,7 @@ class PaymentActor private[actor] (
       systemTime: LocalDateTime,
       processingTimeoutMessage: ProcessingTimeout,
   ) extends State {
-    override def applyEvent(event: ECPaymentIssuingServiceEvent): State = event match {
+    override def applyEvent(event: ECPaymentIssuingServiceEvent)(implicit setup: Setup): State = event match {
       // 決済成功
       case event: SettlementSuccessConfirmed =>
         Completed(
@@ -335,16 +326,16 @@ class PaymentActor private[actor] (
     }
 
     @SuppressWarnings(Array("lerna.warts.CyclomaticComplexity"))
-    override def applyCommand(cmd: Command): ReplyEffect = cmd match {
+    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect = cmd match {
       case StopActor =>
         import lerna.util.tenant.TenantComponentLogContext.logContext
-        logger.info(s"[state: $this, receive: StopActor] 処理結果待ちのため終了処理を保留します")
+        setup.logger.info(s"[state: $this, receive: StopActor] 処理結果待ちのため終了処理を保留します")
         Effect.stash()
 
       case paymentResult: SettlementResult =>
         import paymentResult.{ appRequestContext, processingContext }
 
-        timers.cancel(processingTimeoutMessage)
+        setup.timers.cancel(processingTimeoutMessage)
 
         paymentResult.result match {
           case Right((payCredential, req, result)) =>
@@ -353,7 +344,7 @@ class PaymentActor private[actor] (
                 response.rErrcode match {
                   case `errCodeOk` =>
                     val res = SettlementSuccessResponse()
-                    logger.debug(
+                    setup.logger.debug(
                       s"status ok: paymentProcessing, systemTime: $systemTime ",
                     )
 
@@ -375,12 +366,12 @@ class PaymentActor private[actor] (
                       .thenUnstashAll()
                   case errorCode =>
                     // 承認売上送信エラーなし(200) でも エラーコード "00000"以外、エラーにする
-                    logger.debug(
+                    setup.logger.debug(
                       s"status payment failed, payment response 200 ok, error code is not 00000: paymentProcessing",
                     )
 
                     val message = IssuingServiceServerError("承認売上送信", errorCode)
-                    logger.warn(s"${message.messageId}: ${message.messageContent}")
+                    setup.logger.warn(s"${message.messageId}: ${message.messageContent}")
 
                     val event =
                       SettlementFailureConfirmed(
@@ -428,12 +419,12 @@ class PaymentActor private[actor] (
 
       case msg: Settle =>
         import msg.appRequestContext
-        logger.info("前回のリクエストが処理中のため一時的に保留(stash)します")
+        setup.logger.info("前回のリクエストが処理中のため一時的に保留(stash)します")
         Effect.stash()
 
       case `processingTimeoutMessage` =>
         import processingTimeoutMessage.requestContext
-        logger.info("処理タイムアウトしました: {}", processingTimeoutMessage)
+        setup.logger.info("処理タイムアウトしました: {}", processingTimeoutMessage)
         Effect
           .persist(SettlementTimeoutDetected()(requestContext.traceId))
           .thenRun((_: State) => stopSelfSafely())
@@ -455,17 +446,17 @@ class PaymentActor private[actor] (
       originalRequestParameter: AuthorizationRequestParameter,
       saleDateTime: LocalDateTime,
   ) extends State {
-    override def applyEvent(event: ECPaymentIssuingServiceEvent): State = event match {
+    override def applyEvent(event: ECPaymentIssuingServiceEvent)(implicit setup: Setup): State = event match {
       // 取消
       case event: CancelAccepted =>
         import event.traceId
 
         val processingTimeoutMessage: ProcessingTimeout =
-          ProcessingTimeout(event.systemDateTime, askTimeout, context.system.settings.config)
+          ProcessingTimeout(event.systemDateTime, askTimeout, setup.context.system.settings.config)
 
-        timers.startSingleTimer(
+        setup.timers.startSingleTimer(
           msg = processingTimeoutMessage,
-          delay = processingTimeoutMessage.timeLeft(dateTimeFactory),
+          delay = processingTimeoutMessage.timeLeft(setup.dateTimeFactory),
         )
 
         Canceling(
@@ -485,11 +476,11 @@ class PaymentActor private[actor] (
         )
     }
 
-    override def applyCommand(cmd: Command): ReplyEffect = cmd match {
+    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect = cmd match {
       case msg: Settle =>
         import msg.appRequestContext
         msg.accept()
-        logger.info("すでに処理済みのため、前回の処理結果を返します(前回とキーが同じリクエストが来ました)")
+        setup.logger.info("すでに処理済みのため、前回の処理結果を返します(前回とキーが同じリクエストが来ました)")
 
         stopSelfSafely()
         Effect.reply(msg.replyTo)(settlementSuccessResponse)
@@ -497,7 +488,7 @@ class PaymentActor private[actor] (
       case msg: Cancel =>
         import msg.appRequestContext
         // リクエスト直前の時刻をこちらで作成（変数化）
-        val systemTime = dateTimeFactory.now()
+        val systemTime = setup.dateTimeFactory.now()
 
         implicit val processingContext: ProcessingContext =
           ProcessingContext(
@@ -517,7 +508,7 @@ class PaymentActor private[actor] (
             msg.accept()
 
             val resultFuture = executeCancel(msg, customerId, originalRequestParameter, systemTime)
-            context.pipeToSelf(resultFuture) { triedResult =>
+            setup.context.pipeToSelf(resultFuture) { triedResult =>
               val result = triedResult.toEither.left.map(handleException)
               CancelResult(result)
             }
@@ -538,17 +529,18 @@ class PaymentActor private[actor] (
       systemTime: LocalDateTime,
   )(implicit
       appRequestContext: AppRequestContext,
+      setup: Setup,
   ) = {
     for {
       payCredential <- fetchPayCredential(customerId, issuingServiceCancel.clientId, issuingServiceCancel.walletShopId)
-      paymentId     <- paymentIdFactory.generateIdFor(customerId)
-      transactionId <- transactionIdFactory.generate
+      paymentId     <- setup.paymentIdFactory.generateIdFor(customerId)
+      transactionId <- setup.transactionIdFactory.generate
       acquirerReversalRequestParameter = AcquirerReversalRequestParameter(
         transactionId = transactionId,        // 取引ID、採番
         paymentId = paymentId,                // (会員ごと)決済番号
         terminalId = payCredential.terminalId,// 端末識別番号
       )
-      issuingServicePaymentResult: Either[OnlineProcessingFailureMessage, IssuingServiceResponse] <- gateway
+      issuingServicePaymentResult: Either[OnlineProcessingFailureMessage, IssuingServiceResponse] <- setup.gateway
         .requestAcquirerReversal(acquirerReversalRequestParameter, originalRequestParameter).transform {
           // Gatewayエラーの場合のみ、非同期処理で、RDBMSに登録必要
           case Success(response) =>
@@ -559,7 +551,7 @@ class PaymentActor private[actor] (
 
           case Failure(exception) =>
             val message = UnpredictableError()
-            logger.warn(exception, "{}: {}", message.messageId, message.messageContent)
+            setup.logger.warn(exception, "{}: {}", message.messageId, message.messageContent)
             Success(Left(message))
         }
     } yield (
@@ -579,7 +571,7 @@ class PaymentActor private[actor] (
       systemDateTime: LocalDateTime,
       processingTimeoutMessage: ProcessingTimeout,
   ) extends State {
-    override def applyEvent(event: ECPaymentIssuingServiceEvent): State = event match {
+    override def applyEvent(event: ECPaymentIssuingServiceEvent)(implicit setup: Setup): State = event match {
       // 取消成功
       case event: CancelSuccessConfirmed =>
         Canceled(
@@ -627,15 +619,15 @@ class PaymentActor private[actor] (
     }
 
     @SuppressWarnings(Array("lerna.warts.CyclomaticComplexity"))
-    override def applyCommand(cmd: Command): ReplyEffect = cmd match {
+    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect = cmd match {
       case StopActor =>
         import lerna.util.tenant.TenantComponentLogContext.logContext
-        logger.info(s"[state: $this, receive: StopActor] 処理結果待ちのため終了処理を保留します")
+        setup.logger.info(s"[state: $this, receive: StopActor] 処理結果待ちのため終了処理を保留します")
         Effect.stash()
 
       case `processingTimeoutMessage` =>
         import processingTimeoutMessage.requestContext
-        logger.info("処理タイムアウトしました: {}", processingTimeoutMessage)
+        setup.logger.info("処理タイムアウトしました: {}", processingTimeoutMessage)
         Effect
           .persist(
             CancelTimeoutDetected()(requestContext.traceId),
@@ -645,7 +637,7 @@ class PaymentActor private[actor] (
           .thenUnstashAll()
 
       case cancelResult: CancelResult =>
-        timers.cancel(processingTimeoutMessage)
+        setup.timers.cancel(processingTimeoutMessage)
         import cancelResult.{ appRequestContext, processingContext }
         cancelResult.result match {
           case Right((result, payCredential, acquirerReversalRequestParameter)) =>
@@ -654,7 +646,7 @@ class PaymentActor private[actor] (
                 response.rErrcode match {
                   case `errCodeOk` => // エラーコード 正常
                     val res = SettlementSuccessResponse()
-                    logger.debug(
+                    setup.logger.debug(
                       s"status ok: cancelProcessing",
                     )
                     val event = CancelSuccessConfirmed(
@@ -676,7 +668,7 @@ class PaymentActor private[actor] (
 
                   case "TW005" => // 取消対象取引が既に取消済
                     val res = SettlementSuccessResponse()
-                    logger.debug(
+                    setup.logger.debug(
                       s"status payment's already been canceled: cancelProcessing",
                     )
                     val event = CancelSuccessConfirmed(
@@ -691,19 +683,19 @@ class PaymentActor private[actor] (
                       systemDateTime,
                     )
                     val message = IssuingServiceAlreadyCanceled()
-                    logger.debug(s"${message.messageId}: ${message.messageContent}")
+                    setup.logger.debug(s"${message.messageId}: ${message.messageContent}")
                     Effect
                       .persist(event)
                       .thenReply(processingContext.replyTo)((_: State) => SettlementFailureResponse(message))
                       .thenUnstashAll()
 
                   case errorCode =>
-                    logger.debug(
+                    setup.logger.debug(
                       s"status cancel failed, error code is not 00000: cancelProcessing",
                     )
 
                     val message = IssuingServiceServerError("承認取消送信", errorCode)
-                    logger.warn(s"${message.messageId}: ${message.messageContent}")
+                    setup.logger.warn(s"${message.messageId}: ${message.messageContent}")
                     val event =
                       CancelFailureConfirmed(
                         paymentResponse,
@@ -754,7 +746,7 @@ class PaymentActor private[actor] (
 
       case msg: Cancel =>
         import msg.appRequestContext
-        logger.info("前回のリクエストが処理中のため一時的に保留(stash)します")
+        setup.logger.info("前回のリクエストが処理中のため一時的に保留(stash)します")
         Effect.stash()
 
       case ReceiveTimeout          => handleReceiveTimeout()
@@ -769,17 +761,17 @@ class PaymentActor private[actor] (
       customerId: CustomerId,
       cancelResponse: IssuingServiceResponse,
   ) extends State {
-    override def applyEvent(event: ECPaymentIssuingServiceEvent): State =
+    override def applyEvent(event: ECPaymentIssuingServiceEvent)(implicit setup: Setup): State =
       throw new IllegalArgumentException(
         s"この state(${this.getClass.getName}) では event(${event.getClass.getName}) は作成されない",
       )
 
-    override def applyCommand(cmd: Command): ReplyEffect = cmd match {
+    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect = cmd match {
       case msg: Cancel =>
         msg.accept()
         val response: SettlementResponse = if (msg.customerId === customerId) {
           import msg.appRequestContext
-          logger.info("すでに処理済みのため、前回の処理結果を返します(前回とキーが同じリクエストが来ました)")
+          setup.logger.info("すでに処理済みのため、前回の処理結果を返します(前回とキーが同じリクエストが来ました)")
           cancelSuccessResponse
         } else {
           SettlementFailureResponse(ForbiddenFailure())
@@ -802,18 +794,18 @@ class PaymentActor private[actor] (
   case class Failed(
       message: OnlineProcessingFailureMessage,
   ) extends State {
-    override def applyEvent(event: ECPaymentIssuingServiceEvent): State =
+    override def applyEvent(event: ECPaymentIssuingServiceEvent)(implicit setup: Setup): State =
       throw new IllegalArgumentException(
         s"この state(${this.getClass.getName}) では event(${event.getClass.getName}) は作成されない",
       )
 
-    override def applyCommand(cmd: Command): ReplyEffect = cmd match {
+    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect = cmd match {
       case msg: Settle =>
         import msg.appRequestContext
         msg.accept()
-        logger.info("すでに処理済みのため、前回の処理結果を返します(前回とキーが同じリクエストが来ました)")
+        setup.logger.info("すでに処理済みのため、前回の処理結果を返します(前回とキーが同じリクエストが来ました)")
 
-        logger.info(
+        setup.logger.info(
           s"status: failed, msg: $msg",
         )
         stopSelfSafely()
@@ -845,7 +837,9 @@ class PaymentActor private[actor] (
   )
   private def fetchPayCredential(customerId: CustomerId, clientId: ClientId, walletShopId: WalletShopId)(implicit
       appRequestContext: AppRequestContext,
+      setup: Setup,
   ): Future[IssuingServicePayCredential] = {
+    import setup.tables
     import tables.profile.api._
 
     val query = for {
@@ -876,7 +870,7 @@ class PaymentActor private[actor] (
 
     val action = query.result.headOption
 
-    jdbcService.db.run(action).map {
+    setup.jdbcService.db.run(action).map {
       case Some(
             (
               walletId,
@@ -902,7 +896,7 @@ class PaymentActor private[actor] (
 
       case _ =>
         val message = NotFound("決済情報")
-        logger.debug(s"${message.messageId}: ${message.messageContent}")
+        setup.logger.debug(s"${message.messageId}: ${message.messageContent}")
         throw new BusinessException(message)
     }
   }
@@ -913,24 +907,24 @@ class PaymentActor private[actor] (
     */
   private def handleException(
       cause: Throwable,
-  )(implicit appRequestContext: AppRequestContext): OnlineProcessingFailureMessage = {
+  )(implicit appRequestContext: AppRequestContext, setup: Setup): OnlineProcessingFailureMessage = {
     cause match {
       case exception: BusinessException => exception.message
       case ex =>
         val message = UnpredictableError()
-        logger.warn(ex, "{}: {}", message.messageId, message.messageContent)
+        setup.logger.warn(ex, "{}: {}", message.messageId, message.messageContent)
         message
     }
   }
 
-  private def handleReceiveTimeout(): ReplyEffect = {
+  private def handleReceiveTimeout()(implicit setup: Setup): ReplyEffect = {
     implicit val appRequestContext: AppRequestContext = AppRequestContext(TraceId.unknown, tenant)
-    logger.info("Actorの生成から一定時間経過しました。Actorを停止します。")
+    setup.logger.info("Actorの生成から一定時間経過しました。Actorを停止します。")
     stopSelfSafely()
     Effect.noReply
   }
 
-  private def stopSelfSafely(): Unit = {
-    entityContext.shard ! ClusterSharding.Passivate(context.self)
+  private def stopSelfSafely()(implicit setup: Setup): Unit = {
+    setup.shard ! ClusterSharding.Passivate(setup.context.self)
   }
 }
