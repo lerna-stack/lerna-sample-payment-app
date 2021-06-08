@@ -19,7 +19,6 @@ import jp.co.tis.lerna.payment.adapter.util._
 import jp.co.tis.lerna.payment.adapter.util.exception.BusinessException
 import jp.co.tis.lerna.payment.adapter.wallet.{ ClientId, CustomerId, WalletId }
 import jp.co.tis.lerna.payment.application.ActorPrefix
-import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.PaymentActor.Setup
 import jp.co.tis.lerna.payment.application.ecpayment.issuing.{
   IssuingServicePayCredential,
   PaymentIdFactory,
@@ -36,6 +35,7 @@ import jp.co.tis.lerna.payment.utility.AppRequestContext
 import jp.co.tis.lerna.payment.utility.tenant.AppTenant
 import lerna.log.{ AppLogger, AppTypedActorLogging }
 import lerna.util.lang.Equals._
+import lerna.util.time.JavaDurationConverters._
 import lerna.util.time.LocalDateTimeFactory
 import lerna.util.trace.TraceId
 
@@ -112,52 +112,22 @@ object PaymentActor extends AppTypedActorLogging {
       shardRegion
     }
   }
-}
-
-class PaymentActor private[actor] (
-    config: Config,
-)(implicit setup: PaymentActor.Setup)
-    extends MultiTenantPersistentSupport {
-
-  import lerna.util.time.JavaDurationConverters._
-
-  override def tenant: AppTenant = setup.tenant
-
-  val receiveTimeout: time.Duration =
-    setup.context.system.settings.config
-      .getDuration("jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.receive-timeout")
-
-  setup.context.setReceiveTimeout(receiveTimeout.asScala, ReceiveTimeout)
 
   def askTimeout(implicit setup: Setup): FiniteDuration = setup.context.system.settings.config
     .getDuration("jp.co.tis.lerna.payment.application.ecpayment.issuing.payment-timeout").asScala
 
   private val errCodeOk = "00000"
 
-  def eventSourcedBehavior(): EventSourcedBehavior[Command, ECPaymentIssuingServiceEvent, State] = {
-    val persistenceId =
-      PersistenceId.of(setup.entityContext.entityTypeKey.name, setup.originalEntityId)
-
-    EventSourcedBehavior[Command, ECPaymentIssuingServiceEvent, State](
-      persistenceId = persistenceId,
-      emptyState = WaitingForRequest(),
-      commandHandler = (state, command) => state.applyCommand(command),
-      eventHandler = (state, event) => state.applyEvent(event),
-    )
-      .withJournalPluginId(journalPluginId(config))
-      .withSnapshotPluginId(snapshotPluginId)
-  }
-
   // type alias to reduce boilerplate
   type ReplyEffect = akka.persistence.typed.scaladsl.ReplyEffect[ECPaymentIssuingServiceEvent, State]
 
   // State
-  sealed trait State {
+  private[actor] sealed trait State {
     def applyEvent(event: ECPaymentIssuingServiceEvent)(implicit setup: Setup): State
     def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect
   }
 
-  case class WaitingForRequest() extends State {
+  final case class WaitingForRequest() extends State {
     override def applyEvent(event: ECPaymentIssuingServiceEvent)(implicit setup: Setup): State = event match {
       case event: SettlementAccepted =>
         implicit def tenant: AppTenant = setup.tenant // `import setup.tenant` だと型推論がうまく動かないため def で型を明示
@@ -291,7 +261,7 @@ class PaymentActor private[actor] (
     } yield (payCredential, request, result)
   }
 
-  case class Settling(
+  final case class Settling(
       requestInfo: Settle,
       systemTime: LocalDateTime,
       processingTimeoutMessage: ProcessingTimeout,
@@ -441,7 +411,7 @@ class PaymentActor private[actor] (
     }
   }
 
-  case class Completed(
+  final case class Completed(
       settlementSuccessResponse: SettlementSuccessResponse,
       payCredential: IssuingServicePayCredential,
       customerId: CustomerId,
@@ -567,7 +537,7 @@ class PaymentActor private[actor] (
     )
   }
 
-  case class Canceling(
+  final case class Canceling(
       requestInfo: Cancel,
       settlementSuccessResponse: SettlementSuccessResponse, // 決済成功時、actor -> presentationのレスポンス
       credential: IssuingServicePayCredential,              // RDBMSからの認証情報
@@ -763,7 +733,7 @@ class PaymentActor private[actor] (
     }
   }
 
-  case class Canceled(
+  final case class Canceled(
       cancelSuccessResponse: SettlementSuccessResponse,
       customerId: CustomerId,
       cancelResponse: IssuingServiceResponse,
@@ -798,7 +768,7 @@ class PaymentActor private[actor] (
     }
   }
 
-  case class Failed(
+  final case class Failed(
       message: OnlineProcessingFailureMessage,
   ) extends State {
     override def applyEvent(event: ECPaymentIssuingServiceEvent)(implicit setup: Setup): State =
@@ -934,5 +904,35 @@ class PaymentActor private[actor] (
 
   private def stopSelfSafely()(implicit setup: Setup): Unit = {
     setup.entityContext.shard ! ClusterSharding.Passivate(setup.context.self)
+  }
+}
+
+class PaymentActor private[actor] (
+    config: Config,
+)(implicit setup: PaymentActor.Setup)
+    extends MultiTenantPersistentSupport {
+
+  import PaymentActor._
+
+  override def tenant: AppTenant = setup.tenant
+
+  private val receiveTimeout: time.Duration =
+    setup.context.system.settings.config
+      .getDuration("jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.receive-timeout")
+
+  setup.context.setReceiveTimeout(receiveTimeout.asScala, ReceiveTimeout)
+
+  def eventSourcedBehavior(): EventSourcedBehavior[Command, ECPaymentIssuingServiceEvent, State] = {
+    val persistenceId =
+      PersistenceId.of(setup.entityContext.entityTypeKey.name, setup.originalEntityId)
+
+    EventSourcedBehavior[Command, ECPaymentIssuingServiceEvent, State](
+      persistenceId = persistenceId,
+      emptyState = WaitingForRequest(),
+      commandHandler = (state, command) => state.applyCommand(command),
+      eventHandler = (state, event) => state.applyEvent(event),
+    )
+      .withJournalPluginId(journalPluginId(config))
+      .withSnapshotPluginId(snapshotPluginId)
   }
 }
