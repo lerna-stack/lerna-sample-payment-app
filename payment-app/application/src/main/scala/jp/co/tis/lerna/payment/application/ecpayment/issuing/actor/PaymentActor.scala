@@ -202,42 +202,47 @@ object PaymentActor extends AppTypedActorLogging {
   private val errCodeOk = "00000"
 
   // type alias to reduce boilerplate
-  type ReplyEffect = akka.persistence.typed.scaladsl.ReplyEffect[ECPaymentIssuingServiceEvent, State]
+  type ReplyEffect[Event] = akka.persistence.typed.scaladsl.ReplyEffect[Event, State]
 
   // State
   private[actor] sealed trait State {
-    def applyEvent(event: ECPaymentIssuingServiceEvent)(implicit setup: Setup): State
-    def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect
+    def _applyEvent(event: ECPaymentIssuingServiceEvent)(implicit setup: Setup): State
+    def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect[ECPaymentIssuingServiceEvent]
   }
 
-  final case class WaitingForRequest() extends State {
-    override def applyEvent(event: ECPaymentIssuingServiceEvent)(implicit setup: Setup): State = event match {
-      case event: SettlementAccepted =>
-        implicit def tenant: AppTenant = setup.tenant // `import setup.tenant` だと型推論がうまく動かないため def で型を明示
-        import event.traceId
+  private[actor] sealed trait StateBase[Event <: ECPaymentIssuingServiceEvent] extends State {
+    @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
+    override final def _applyEvent(event: ECPaymentIssuingServiceEvent)(implicit setup: Setup): State =
+      applyEvent(event.asInstanceOf[Event])
 
-        val processingTimeoutMessage: ProcessingTimeout =
-          ProcessingTimeout(event.systemTime, askTimeout, setup.context.system.settings.config)
+    def applyEvent(event: Event)(implicit setup: Setup): State
+    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect[Event]
+  }
 
-        setup.timers.startSingleTimer(
-          msg = processingTimeoutMessage,
-          delay = processingTimeoutMessage.timeLeft(setup.dateTimeFactory),
-        )
+  final case class WaitingForRequest() extends StateBase[SettlementAccepted] {
+    override def applyEvent(event: SettlementAccepted)(implicit setup: Setup): State =
+      event match {
+        case event: SettlementAccepted =>
+          implicit def tenant: AppTenant = setup.tenant // `import setup.tenant` だと型推論がうまく動かないため def で型を明示
+          import event.traceId
 
-        Settling(
-          event.requestInfo,
-          event.systemTime,
-          processingTimeoutMessage,
-        )
+          val processingTimeoutMessage: ProcessingTimeout =
+            ProcessingTimeout(event.systemTime, askTimeout, setup.context.system.settings.config)
 
-      case _ =>
-        throw new IllegalArgumentException(
-          s"この state(${this.getClass.getName}) では event(${event.getClass.getName}) は作成されない",
-        )
+          setup.timers.startSingleTimer(
+            msg = processingTimeoutMessage,
+            delay = processingTimeoutMessage.timeLeft(setup.dateTimeFactory),
+          )
 
-    }
+          Settling(
+            event.requestInfo,
+            event.systemTime,
+            processingTimeoutMessage,
+          )
 
-    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect = cmd match {
+      }
+
+    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect[SettlementAccepted] = cmd match {
       case cancelRequest: Cancel =>
         cancelRequest.accept()
 
@@ -345,40 +350,36 @@ object PaymentActor extends AppTypedActorLogging {
       requestInfo: Settle,
       systemTime: LocalDateTime,
       processingTimeoutMessage: ProcessingTimeout,
-  ) extends State {
-    override def applyEvent(event: ECPaymentIssuingServiceEvent)(implicit setup: Setup): State = event match {
-      // 決済成功
-      case event: SettlementSuccessConfirmed =>
-        Completed(
-          event.successResponse,
-          event.payCredential,
-          event.requestInfo.customerId,
-          event.paymentResponse,
-          event.issuingServiceRequest,
-          event.systemDate,
-        )
+  ) extends StateBase[SettlingResult] {
+    override def applyEvent(event: SettlingResult)(implicit setup: Setup): State =
+      event match {
+        // 決済成功
+        case event: SettlementSuccessConfirmed =>
+          Completed(
+            event.successResponse,
+            event.payCredential,
+            event.requestInfo.customerId,
+            event.paymentResponse,
+            event.issuingServiceRequest,
+            event.systemDate,
+          )
 
-      // 決済要求リクエスト前に失敗
-      case event: SettlementAborted =>
-        Failed(event.failureMessage)
+        // 決済要求リクエスト前に失敗
+        case event: SettlementAborted =>
+          Failed(event.failureMessage)
 
-      // 決済失敗
-      case event: SettlementFailureConfirmed =>
-        Failed(event.failureMessage)
+        // 決済失敗
+        case event: SettlementFailureConfirmed =>
+          Failed(event.failureMessage)
 
-      case _: SettlementTimeoutDetected =>
-        val message = UnpredictableError()
-        Failed(message)
+        case _: SettlementTimeoutDetected =>
+          val message = UnpredictableError()
+          Failed(message)
 
-      case _ =>
-        throw new IllegalArgumentException(
-          s"この state(${this.getClass.getName}) では event(${event.getClass.getName}) は作成されない",
-        )
-
-    }
+      }
 
     @SuppressWarnings(Array("lerna.warts.CyclomaticComplexity"))
-    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect = cmd match {
+    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect[SettlingResult] = cmd match {
       case StopActor =>
         implicit def tenant: AppTenant = setup.tenant // `import setup.tenant` だと型推論がうまく動かないため def で型を明示
         import lerna.util.tenant.TenantComponentLogContext.logContext
@@ -498,8 +499,8 @@ object PaymentActor extends AppTypedActorLogging {
       paymentResponse: IssuingServiceResponse,
       originalRequestParameter: AuthorizationRequestParameter,
       saleDateTime: LocalDateTime,
-  ) extends State {
-    override def applyEvent(event: ECPaymentIssuingServiceEvent)(implicit setup: Setup): State = event match {
+  ) extends StateBase[CancelAccepted] {
+    override def applyEvent(event: CancelAccepted)(implicit setup: Setup): State = event match {
       // 取消
       case event: CancelAccepted =>
         implicit def tenant: AppTenant = setup.tenant // `import setup.tenant` だと型推論がうまく動かないため def で型を明示
@@ -523,14 +524,9 @@ object PaymentActor extends AppTypedActorLogging {
           event.systemDateTime,
           processingTimeoutMessage,
         )
-
-      case _ =>
-        throw new IllegalArgumentException(
-          s"この state(${this.getClass.getName}) では event(${event.getClass.getName}) は作成されない",
-        )
     }
 
-    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect = cmd match {
+    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect[CancelAccepted] = cmd match {
       case msg: Settle =>
         import msg.appRequestContext
         msg.accept()
@@ -627,8 +623,8 @@ object PaymentActor extends AppTypedActorLogging {
       saleDateTime: LocalDateTime,                          // 買上日時、※決済要求時のシステム日時
       systemDateTime: LocalDateTime,
       processingTimeoutMessage: ProcessingTimeout,
-  ) extends State {
-    override def applyEvent(event: ECPaymentIssuingServiceEvent)(implicit setup: Setup): State = event match {
+  ) extends StateBase[CancelingResult] {
+    override def applyEvent(event: CancelingResult)(implicit setup: Setup): State = event match {
       // 取消成功
       case event: CancelSuccessConfirmed =>
         Canceled(
@@ -668,15 +664,10 @@ object PaymentActor extends AppTypedActorLogging {
           originalRequest,
           saleDateTime,
         )
-
-      case _ =>
-        throw new IllegalArgumentException(
-          s"この state(${this.getClass.getName}) では event(${event.getClass.getName}) は作成されない",
-        )
     }
 
     @SuppressWarnings(Array("lerna.warts.CyclomaticComplexity"))
-    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect = cmd match {
+    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect[CancelingResult] = cmd match {
       case StopActor =>
         implicit def tenant: AppTenant = setup.tenant // `import setup.tenant` だと型推論がうまく動かないため def で型を明示
         import lerna.util.tenant.TenantComponentLogContext.logContext
@@ -818,13 +809,13 @@ object PaymentActor extends AppTypedActorLogging {
       cancelSuccessResponse: SettlementSuccessResponse,
       customerId: CustomerId,
       cancelResponse: IssuingServiceResponse,
-  ) extends State {
-    override def applyEvent(event: ECPaymentIssuingServiceEvent)(implicit setup: Setup): State =
+  ) extends StateBase[Nothing] {
+    override def applyEvent(event: Nothing)(implicit setup: Setup): State =
       throw new IllegalArgumentException(
         s"この state(${this.getClass.getName}) では event(${event.getClass.getName}) は作成されない",
       )
 
-    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect = cmd match {
+    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect[Nothing] = cmd match {
       case msg: Cancel =>
         msg.accept()
         val response: SettlementResponse = if (msg.customerId === customerId) {
@@ -851,13 +842,13 @@ object PaymentActor extends AppTypedActorLogging {
 
   final case class Failed(
       message: OnlineProcessingFailureMessage,
-  ) extends State {
-    override def applyEvent(event: ECPaymentIssuingServiceEvent)(implicit setup: Setup): State =
+  ) extends StateBase[Nothing] {
+    override def applyEvent(event: Nothing)(implicit setup: Setup): State =
       throw new IllegalArgumentException(
         s"この state(${this.getClass.getName}) では event(${event.getClass.getName}) は作成されない",
       )
 
-    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect = cmd match {
+    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect[Nothing] = cmd match {
       case msg: Settle =>
         import msg.appRequestContext
         msg.accept()
@@ -976,7 +967,7 @@ object PaymentActor extends AppTypedActorLogging {
     }
   }
 
-  private def handleReceiveTimeout()(implicit setup: Setup): ReplyEffect = {
+  private def handleReceiveTimeout[Event]()(implicit setup: Setup): ReplyEffect[Event] = {
     implicit val appRequestContext: AppRequestContext = AppRequestContext(TraceId.unknown, setup.tenant)
     setup.logger.info("Actorの生成から一定時間経過しました。Actorを停止します。")
     stopSelfSafely()
@@ -1008,7 +999,7 @@ class PaymentActor private[actor] ()(implicit setup: PaymentActor.Setup) extends
       persistenceId = persistenceId,
       emptyState = WaitingForRequest(),
       commandHandler = (state, command) => state.applyCommand(command),
-      eventHandler = (state, event) => state.applyEvent(event),
+      eventHandler = (state, event) => state._applyEvent(event),
     )
       .withJournalPluginId(journalPluginId(setup.context.system.settings.config))
       .withSnapshotPluginId(snapshotPluginId)
