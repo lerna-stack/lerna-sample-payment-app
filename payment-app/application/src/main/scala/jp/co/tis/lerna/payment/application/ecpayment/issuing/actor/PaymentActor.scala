@@ -121,7 +121,6 @@ class PaymentActor private[actor] (
     extends MultiTenantPersistentSupport
     with MultiTenantShardingSupport[Command] {
 
-  import setup.context.executionContext
   import lerna.util.time.JavaDurationConverters._
 
   val receiveTimeout: time.Duration =
@@ -246,6 +245,7 @@ class PaymentActor private[actor] (
       appRequestContext: AppRequestContext,
       setup: Setup,
   ) = {
+    import setup.context.executionContext
     val customerId = payRequest.customerId
 
     for {
@@ -531,6 +531,7 @@ class PaymentActor private[actor] (
       appRequestContext: AppRequestContext,
       setup: Setup,
   ) = {
+    import setup.context.executionContext
     for {
       payCredential <- fetchPayCredential(customerId, issuingServiceCancel.clientId, issuingServiceCancel.walletShopId)
       paymentId     <- setup.paymentIdFactory.generateIdFor(customerId)
@@ -839,6 +840,7 @@ class PaymentActor private[actor] (
       appRequestContext: AppRequestContext,
       setup: Setup,
   ): Future[IssuingServicePayCredential] = {
+    import setup.context.executionContext
     import setup.tables
     import tables.profile.api._
 
