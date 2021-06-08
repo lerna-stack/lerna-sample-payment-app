@@ -1,7 +1,7 @@
 # マルチテナント化されたClusterShardingの実装ガイド
 
 ## ClusterSharding の Entity Actor の実装にあたって必要なこと
-1. Actor class に 以下の 2 class を継承する
+1. Actor or Setup class に 以下の 2 class を継承する
     - `jp.co.tis.lerna.payment.application.util.tenant.actor.MultiTenantPersistentSupport`
     - `jp.co.tis.lerna.payment.application.util.tenant.actor.MultiTenantShardingSupport`
 1. `def tenantSupportEntityId` を `extractEntityId` 定義の際に使用する
@@ -10,22 +10,56 @@
 ## 実装例
 
 ### Actor
-`application.util.tenant.actor` の 2 class を継承する。
+Actor or Setup class に `application.util.tenant.actor` の 2 class を継承する。
 
+#### Actor のケース
 ```scala
 import akka.persistence.typed.scaladsl.EventSourcedBehavior
 import com.typesafe.config.Config
 import jp.co.tis.lerna.payment.application.util.tenant.actor._
 
 class PaymentActor(
-    /* 略 */
-    config: Config,
-    val entityContext: EntityContext[Command],    
-) extends MultiTenantPersistentSupport
-    with MultiTenantShardingSupport[Command] {
+                          /* 略 */
+                          config: Config,
+                          val entityContext: EntityContext[Command],
+                  ) extends MultiTenantPersistentSupport
+        with MultiTenantShardingSupport[Command] {
 
     def eventSourcedBehavior(): EventSourcedBehavior[Command, Event, State] = {
         val persistenceId = PersistenceId.of(entityContext.entityTypeKey.name, originalEntityId)
+        EventSourcedBehavior[Command, ECPaymentIssuingServiceEvent, State](
+            persistenceId = persistenceId,
+            emptyState = ???,
+            commandHandler = (state, command) => state.applyCommand(command),
+            eventHandler = (state, event) => state.applyEvent(event),
+        )
+                .withJournalPluginId(journalPluginId(config))
+                .withSnapshotPluginId(snapshotPluginId)
+    }
+}
+```
+
+#### Setup のケース
+```scala
+import akka.persistence.typed.scaladsl.EventSourcedBehavior
+import com.typesafe.config.Config
+import jp.co.tis.lerna.payment.application.util.tenant.actor._
+
+private[actor] final case class Setup(
+    /* 略 */
+    entityContext: EntityContext[Command],
+) extends MultiTenantShardingSupport[Command]
+
+class PaymentActor(
+    /* 略 */
+    config: Config,
+    setup: Setup,    
+) extends MultiTenantPersistentSupport {
+  
+    override implicit def tenant: AppTenant = setup.tenant
+
+    def eventSourcedBehavior(): EventSourcedBehavior[Command, Event, State] = {
+        val persistenceId = PersistenceId.of(setup.entityContext.entityTypeKey.name, setup.originalEntityId)
         EventSourcedBehavior[Command, ECPaymentIssuingServiceEvent, State](
             persistenceId = persistenceId,
             emptyState = ???,
@@ -36,8 +70,7 @@ class PaymentActor(
           .withSnapshotPluginId(snapshotPluginId)
     }
 }
-
-````
+```
 
 ### `EntityId`
 `MultiTenantShardingSupport.tenantSupportEntityId` を使用する。

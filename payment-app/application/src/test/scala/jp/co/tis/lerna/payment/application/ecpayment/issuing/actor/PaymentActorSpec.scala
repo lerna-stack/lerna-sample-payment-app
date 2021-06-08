@@ -906,12 +906,11 @@ class PaymentActorSpec
               paymentIdFactory,
               context,
               timers,
-              entityContext.shard,
+              entityContext,
               logger,
             )
             val actor = new PaymentActor(
               config,
-              entityContext,
             )
             actor.eventSourcedBehavior()
           })

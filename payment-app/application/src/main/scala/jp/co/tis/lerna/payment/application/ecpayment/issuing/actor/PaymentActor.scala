@@ -33,6 +33,7 @@ import jp.co.tis.lerna.payment.readmodel.JDBCService
 import jp.co.tis.lerna.payment.readmodel.constant.{ LogicalDeleteFlag, ServiceRelationForeignKeyType }
 import jp.co.tis.lerna.payment.readmodel.schema.Tables
 import jp.co.tis.lerna.payment.utility.AppRequestContext
+import jp.co.tis.lerna.payment.utility.tenant.AppTenant
 import lerna.log.{ AppLogger, AppTypedActorLogging }
 import lerna.util.lang.Equals._
 import lerna.util.time.LocalDateTimeFactory
@@ -57,9 +58,9 @@ object PaymentActor extends AppTypedActorLogging {
       paymentIdFactory: PaymentIdFactory,
       context: ActorContext[Command],
       timers: TimerScheduler[Command],
-      shard: ActorRef[ClusterSharding.ShardCommand],
+      entityContext: EntityContext[Command],
       logger: AppLogger,
-  )
+  ) extends MultiTenantShardingSupport[Command]
 
   object Sharding {
 
@@ -93,12 +94,11 @@ object PaymentActor extends AppTypedActorLogging {
                     paymentIdFactory,
                     context,
                     timers,
-                    entityContext.shard,
+                    entityContext,
                     logger,
                   )
                   val actor = new PaymentActor(
                     config,
-                    entityContext,
                   )
                   actor.eventSourcedBehavior()
                 })
@@ -116,12 +116,12 @@ object PaymentActor extends AppTypedActorLogging {
 
 class PaymentActor private[actor] (
     config: Config,
-    val entityContext: EntityContext[Command],
 )(implicit setup: PaymentActor.Setup)
-    extends MultiTenantPersistentSupport
-    with MultiTenantShardingSupport[Command] {
+    extends MultiTenantPersistentSupport {
 
   import lerna.util.time.JavaDurationConverters._
+
+  override implicit def tenant: AppTenant = setup.tenant
 
   val receiveTimeout: time.Duration =
     setup.context.system.settings.config
@@ -136,7 +136,7 @@ class PaymentActor private[actor] (
 
   def eventSourcedBehavior(): EventSourcedBehavior[Command, ECPaymentIssuingServiceEvent, State] = {
     val persistenceId =
-      PersistenceId.of(entityContext.entityTypeKey.name, originalEntityId)
+      PersistenceId.of(setup.entityContext.entityTypeKey.name, setup.originalEntityId)
 
     EventSourcedBehavior[Command, ECPaymentIssuingServiceEvent, State](
       persistenceId = persistenceId,
@@ -927,6 +927,6 @@ class PaymentActor private[actor] (
   }
 
   private def stopSelfSafely()(implicit setup: Setup): Unit = {
-    setup.shard ! ClusterSharding.Passivate(setup.context.self)
+    setup.entityContext.shard ! ClusterSharding.Passivate(setup.context.self)
   }
 }
