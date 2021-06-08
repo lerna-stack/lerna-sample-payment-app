@@ -6,7 +6,6 @@ import akka.cluster.sharding.typed.scaladsl.{ ClusterSharding, Entity, EntityCon
 import akka.cluster.sharding.typed.{ HashCodeMessageExtractor, ShardingEnvelope }
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.scaladsl.{ Effect, EventSourcedBehavior }
-import com.typesafe.config.Config
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model._
 import jp.co.tis.lerna.payment.adapter.ecpayment.model.WalletShopId
 import jp.co.tis.lerna.payment.adapter.issuing.IssuingServiceGateway
@@ -65,7 +64,6 @@ object PaymentActor extends AppTypedActorLogging {
   object Sharding {
 
     def startClusterSharding(
-        config: Config,
         gateway: IssuingServiceGateway,
         jdbcService: JDBCService,
         tables: Tables,
@@ -97,9 +95,7 @@ object PaymentActor extends AppTypedActorLogging {
                     entityContext,
                     logger,
                   )
-                  val actor = new PaymentActor(
-                    config,
-                  )
+                  val actor = new PaymentActor()
                   actor.eventSourcedBehavior()
                 })
               })
@@ -907,10 +903,7 @@ object PaymentActor extends AppTypedActorLogging {
   }
 }
 
-class PaymentActor private[actor] (
-    config: Config,
-)(implicit setup: PaymentActor.Setup)
-    extends MultiTenantPersistentSupport {
+class PaymentActor private[actor] ()(implicit setup: PaymentActor.Setup) extends MultiTenantPersistentSupport {
 
   import PaymentActor._
 
@@ -932,7 +925,7 @@ class PaymentActor private[actor] (
       commandHandler = (state, command) => state.applyCommand(command),
       eventHandler = (state, event) => state.applyEvent(event),
     )
-      .withJournalPluginId(journalPluginId(config))
+      .withJournalPluginId(journalPluginId(setup.context.system.settings.config))
       .withSnapshotPluginId(snapshotPluginId)
   }
 }

@@ -86,7 +86,6 @@ class PaymentActorSpec
   private implicit val typedSystem: typed.ActorSystem[Nothing] = system.toTyped
   private val typedTestkit                                     = ActorTestKit(typedSystem)
 
-  val config: Config                 = diSession.build[Config]
   val dateTime: LocalDateTimeFactory = diSession.build[LocalDateTimeFactory]
 
   "ハウスマニーアクター" when {
@@ -909,9 +908,7 @@ class PaymentActorSpec
               entityContext,
               logger,
             )
-            val actor = new PaymentActor(
-              config,
-            )
+            val actor = new PaymentActor()
             actor.eventSourcedBehavior()
           })
         })

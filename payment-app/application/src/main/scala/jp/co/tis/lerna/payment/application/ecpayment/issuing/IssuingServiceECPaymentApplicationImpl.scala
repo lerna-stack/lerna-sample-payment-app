@@ -99,7 +99,6 @@ class IssuingServiceECPaymentApplicationImpl(
 
   private val shardRegion =
     Sharding.startClusterSharding(
-      config,
       gateway,
       database,
       tables,
