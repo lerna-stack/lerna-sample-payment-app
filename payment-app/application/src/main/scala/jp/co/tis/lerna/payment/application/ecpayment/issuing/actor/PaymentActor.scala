@@ -121,7 +121,7 @@ class PaymentActor private[actor] (
 
   import lerna.util.time.JavaDurationConverters._
 
-  override implicit def tenant: AppTenant = setup.tenant
+  override def tenant: AppTenant = setup.tenant
 
   val receiveTimeout: time.Duration =
     setup.context.system.settings.config
@@ -160,6 +160,7 @@ class PaymentActor private[actor] (
   case class WaitingForRequest() extends State {
     override def applyEvent(event: ECPaymentIssuingServiceEvent)(implicit setup: Setup): State = event match {
       case event: SettlementAccepted =>
+        implicit def tenant: AppTenant = setup.tenant // `import setup.tenant` だと型推論がうまく動かないため def で型を明示
         import event.traceId
 
         val processingTimeoutMessage: ProcessingTimeout =
@@ -245,6 +246,7 @@ class PaymentActor private[actor] (
       appRequestContext: AppRequestContext,
       setup: Setup,
   ) = {
+    implicit def tenant: AppTenant = setup.tenant // `import setup.tenant` だと型推論がうまく動かないため def で型を明示
     import setup.context.executionContext
     val customerId = payRequest.customerId
 
@@ -328,6 +330,7 @@ class PaymentActor private[actor] (
     @SuppressWarnings(Array("lerna.warts.CyclomaticComplexity"))
     override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect = cmd match {
       case StopActor =>
+        implicit def tenant: AppTenant = setup.tenant // `import setup.tenant` だと型推論がうまく動かないため def で型を明示
         import lerna.util.tenant.TenantComponentLogContext.logContext
         setup.logger.info(s"[state: $this, receive: StopActor] 処理結果待ちのため終了処理を保留します")
         Effect.stash()
@@ -449,6 +452,7 @@ class PaymentActor private[actor] (
     override def applyEvent(event: ECPaymentIssuingServiceEvent)(implicit setup: Setup): State = event match {
       // 取消
       case event: CancelAccepted =>
+        implicit def tenant: AppTenant = setup.tenant // `import setup.tenant` だと型推論がうまく動かないため def で型を明示
         import event.traceId
 
         val processingTimeoutMessage: ProcessingTimeout =
@@ -531,6 +535,7 @@ class PaymentActor private[actor] (
       appRequestContext: AppRequestContext,
       setup: Setup,
   ) = {
+    implicit def tenant: AppTenant = setup.tenant // `import setup.tenant` だと型推論がうまく動かないため def で型を明示
     import setup.context.executionContext
     for {
       payCredential <- fetchPayCredential(customerId, issuingServiceCancel.clientId, issuingServiceCancel.walletShopId)
@@ -622,6 +627,7 @@ class PaymentActor private[actor] (
     @SuppressWarnings(Array("lerna.warts.CyclomaticComplexity"))
     override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect = cmd match {
       case StopActor =>
+        implicit def tenant: AppTenant = setup.tenant // `import setup.tenant` だと型推論がうまく動かないため def で型を明示
         import lerna.util.tenant.TenantComponentLogContext.logContext
         setup.logger.info(s"[state: $this, receive: StopActor] 処理結果待ちのため終了処理を保留します")
         Effect.stash()
@@ -920,7 +926,7 @@ class PaymentActor private[actor] (
   }
 
   private def handleReceiveTimeout()(implicit setup: Setup): ReplyEffect = {
-    implicit val appRequestContext: AppRequestContext = AppRequestContext(TraceId.unknown, tenant)
+    implicit val appRequestContext: AppRequestContext = AppRequestContext(TraceId.unknown, setup.tenant)
     setup.logger.info("Actorの生成から一定時間経過しました。Actorを停止します。")
     stopSelfSafely()
     Effect.noReply
