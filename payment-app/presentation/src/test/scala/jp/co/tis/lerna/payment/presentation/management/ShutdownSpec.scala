@@ -9,10 +9,11 @@ import jp.co.tis.lerna.payment.adapter.util.shutdown.GracefulShutdownApplication
 import jp.co.tis.lerna.payment.utility.scalatest.StandardSpec
 import jp.co.tis.lerna.payment.utility.tenant.AppTenant
 import lerna.testkit.airframe.DISessionSupport
-import org.scalatest.{ Inside, WordSpec }
+import org.scalatest.Inside
 import wvlet.airframe.{ newDesign, Design }
 
 import scala.concurrent.Future
+import org.scalatest.wordspec.AnyWordSpec
 
 object ShutdownSpec {
   private class HealthCheckApplicationMock extends HealthCheckApplication {
@@ -47,7 +48,7 @@ object ShutdownSpec {
     "org.wartremover.warts.Equals",
   ),
 )
-class ShutdownSpec extends WordSpec with StandardSpec with ScalatestRouteTest with Inside with DISessionSupport {
+class ShutdownSpec extends AnyWordSpec with StandardSpec with ScalatestRouteTest with Inside with DISessionSupport {
 
   import ShutdownSpec._
 
