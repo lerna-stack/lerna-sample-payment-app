@@ -8,7 +8,7 @@ object Dependencies {
     val akkaHttp                 = "10.1.12"
     val akkaPersistenceCassandra = "1.0.1"
     val akkaProjection           = "1.1.0"
-    val scalaTest                = "3.0.9"
+    val scalaTest                = "3.1.4"
     val airframe                 = "20.9.0"
     val logback                  = "1.2.3"
     val slick                    = "3.3.2"
