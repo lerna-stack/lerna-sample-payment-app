@@ -203,58 +203,58 @@ object PaymentActor extends AppTypedActorLogging {
       case _: ProcessingTimeout    => Effect.unhandled.thenNoReply()
       case _: InnerBusinessCommand => Effect.unhandled.thenNoReply()
     }
-  }
 
-  private def executePayment(
-      payRequest: Settle,
-      systemTime: LocalDateTime,
-  )(implicit
-      appRequestContext: AppRequestContext,
-      setup: Setup,
-  ) = {
-    implicit def tenant: AppTenant = setup.tenant // `import setup.tenant` だと型推論がうまく動かないため def で型を明示
-    import setup.context.executionContext
-    val customerId = payRequest.customerId
+    private def executePayment(
+        payRequest: Settle,
+        systemTime: LocalDateTime,
+    )(implicit
+        appRequestContext: AppRequestContext,
+        setup: Setup,
+    ) = {
+      implicit def tenant: AppTenant = setup.tenant // `import setup.tenant` だと型推論がうまく動かないため def で型を明示
+      import setup.context.executionContext
+      val customerId = payRequest.customerId
 
-    for {
-      payCredential <- fetchPayCredential(customerId, payRequest.clientId, payRequest.walletShopId)
-      transactionId <- setup.transactionIdFactory.generate
-      paymentId     <- setup.paymentIdFactory.generateIdFor(customerId)
-      request = {
-        setup.logger.debug("walletId:" + payCredential.walletId.toString)
-        setup.logger.debug("customerNumber:" + payCredential.customerNumber.toString)
-        setup.logger.debug("memberStoreNameId:" + payCredential.memberStoreId)
-        setup.logger.debug("memberStoreNameEn:" + payCredential.memberStoreNameEn.toString)
-        setup.logger.debug("memberStoreNameJp:" + payCredential.memberStoreNameJp.toString)
-        setup.logger.debug("contractNumber:" + payCredential.contractNumber.toString)
-        setup.logger.debug("terminalId:" + payCredential.terminalId.value)
+      for {
+        payCredential <- fetchPayCredential(customerId, payRequest.clientId, payRequest.walletShopId)
+        transactionId <- setup.transactionIdFactory.generate
+        paymentId     <- setup.paymentIdFactory.generateIdFor(customerId)
+        request = {
+          setup.logger.debug("walletId:" + payCredential.walletId.toString)
+          setup.logger.debug("customerNumber:" + payCredential.customerNumber.toString)
+          setup.logger.debug("memberStoreNameId:" + payCredential.memberStoreId)
+          setup.logger.debug("memberStoreNameEn:" + payCredential.memberStoreNameEn.toString)
+          setup.logger.debug("memberStoreNameJp:" + payCredential.memberStoreNameJp.toString)
+          setup.logger.debug("contractNumber:" + payCredential.contractNumber.toString)
+          setup.logger.debug("terminalId:" + payCredential.terminalId.value)
 
-        AuthorizationRequestParameter(
-          pan = payCredential.housePan,                           // カード番号
-          amountTran = payRequest.amountTran,                     // 取引金額
-          tranDateTime = systemTime,                              // 送信日時
-          transactionId = transactionId,                          // 取引ID
-          accptrId = "%-15s".format(payCredential.memberStoreId), // 加盟店ID 左詰め１５桁固定長
-          paymentId = paymentId,                                  // (会員ごと)決済番号
-          terminalId = payCredential.terminalId,                  // 端末識別番号
-        )
+          AuthorizationRequestParameter(
+            pan = payCredential.housePan,                           // カード番号
+            amountTran = payRequest.amountTran,                     // 取引金額
+            tranDateTime = systemTime,                              // 送信日時
+            transactionId = transactionId,                          // 取引ID
+            accptrId = "%-15s".format(payCredential.memberStoreId), // 加盟店ID 左詰め１５桁固定長
+            paymentId = paymentId,                                  // (会員ごと)決済番号
+            terminalId = payCredential.terminalId,                  // 端末識別番号
+          )
 
-      }
-      result: Either[OnlineProcessingFailureMessage, IssuingServiceResponse] <- setup.gateway
-        .requestAuthorization(request).transform {
-          // Gatewayエラーの場合のみ、非同期処理で、RDBMSに登録必要
-          case Success(response) =>
-            Success(Right(response))
-
-          case Failure(ex: BusinessException) =>
-            Success(Left(ex.message))
-
-          case Failure(exception) =>
-            val message = UnpredictableError()
-            setup.logger.warn(exception, "{}: {}", message.messageId, message.messageContent)
-            Success(Left(message))
         }
-    } yield (payCredential, request, result)
+        result: Either[OnlineProcessingFailureMessage, IssuingServiceResponse] <- setup.gateway
+          .requestAuthorization(request).transform {
+            // Gatewayエラーの場合のみ、非同期処理で、RDBMSに登録必要
+            case Success(response) =>
+              Success(Right(response))
+
+            case Failure(ex: BusinessException) =>
+              Success(Left(ex.message))
+
+            case Failure(exception) =>
+              val message = UnpredictableError()
+              setup.logger.warn(exception, "{}: {}", message.messageId, message.messageContent)
+              Success(Left(message))
+          }
+      } yield (payCredential, request, result)
+    }
   }
 
   final case class Settling(
@@ -490,47 +490,51 @@ object PaymentActor extends AppTypedActorLogging {
       case _: InnerBusinessCommand => Effect.unhandled.thenNoReply()
 
     }
-  }
 
-  private def executeCancel(
-      issuingServiceCancel: Cancel,
-      customerId: CustomerId,
-      originalRequestParameter: AuthorizationRequestParameter,
-      systemTime: LocalDateTime,
-  )(implicit
-      appRequestContext: AppRequestContext,
-      setup: Setup,
-  ) = {
-    implicit def tenant: AppTenant = setup.tenant // `import setup.tenant` だと型推論がうまく動かないため def で型を明示
-    import setup.context.executionContext
-    for {
-      payCredential <- fetchPayCredential(customerId, issuingServiceCancel.clientId, issuingServiceCancel.walletShopId)
-      paymentId     <- setup.paymentIdFactory.generateIdFor(customerId)
-      transactionId <- setup.transactionIdFactory.generate
-      acquirerReversalRequestParameter = AcquirerReversalRequestParameter(
-        transactionId = transactionId,        // 取引ID、採番
-        paymentId = paymentId,                // (会員ごと)決済番号
-        terminalId = payCredential.terminalId,// 端末識別番号
+    private def executeCancel(
+        issuingServiceCancel: Cancel,
+        customerId: CustomerId,
+        originalRequestParameter: AuthorizationRequestParameter,
+        systemTime: LocalDateTime,
+    )(implicit
+        appRequestContext: AppRequestContext,
+        setup: Setup,
+    ) = {
+      implicit def tenant: AppTenant = setup.tenant // `import setup.tenant` だと型推論がうまく動かないため def で型を明示
+      import setup.context.executionContext
+      for {
+        payCredential <- fetchPayCredential(
+          customerId,
+          issuingServiceCancel.clientId,
+          issuingServiceCancel.walletShopId,
+        )
+        paymentId     <- setup.paymentIdFactory.generateIdFor(customerId)
+        transactionId <- setup.transactionIdFactory.generate
+        acquirerReversalRequestParameter = AcquirerReversalRequestParameter(
+          transactionId = transactionId,        // 取引ID、採番
+          paymentId = paymentId,                // (会員ごと)決済番号
+          terminalId = payCredential.terminalId,// 端末識別番号
+        )
+        issuingServicePaymentResult: Either[OnlineProcessingFailureMessage, IssuingServiceResponse] <- setup.gateway
+          .requestAcquirerReversal(acquirerReversalRequestParameter, originalRequestParameter).transform {
+            // Gatewayエラーの場合のみ、非同期処理で、RDBMSに登録必要
+            case Success(response) =>
+              Success(Right(response))
+
+            case Failure(ex: BusinessException) =>
+              Success(Left(ex.message))
+
+            case Failure(exception) =>
+              val message = UnpredictableError()
+              setup.logger.warn(exception, "{}: {}", message.messageId, message.messageContent)
+              Success(Left(message))
+          }
+      } yield (
+        issuingServicePaymentResult,
+        payCredential,
+        acquirerReversalRequestParameter,
       )
-      issuingServicePaymentResult: Either[OnlineProcessingFailureMessage, IssuingServiceResponse] <- setup.gateway
-        .requestAcquirerReversal(acquirerReversalRequestParameter, originalRequestParameter).transform {
-          // Gatewayエラーの場合のみ、非同期処理で、RDBMSに登録必要
-          case Success(response) =>
-            Success(Right(response))
-
-          case Failure(ex: BusinessException) =>
-            Success(Left(ex.message))
-
-          case Failure(exception) =>
-            val message = UnpredictableError()
-            setup.logger.warn(exception, "{}: {}", message.messageId, message.messageContent)
-            Success(Left(message))
-        }
-    } yield (
-      issuingServicePaymentResult,
-      payCredential,
-      acquirerReversalRequestParameter,
-    )
+    }
   }
 
   final case class Canceling(
