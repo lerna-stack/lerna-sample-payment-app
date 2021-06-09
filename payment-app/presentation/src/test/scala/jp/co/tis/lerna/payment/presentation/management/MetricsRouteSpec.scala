@@ -9,8 +9,9 @@ import jp.co.tis.lerna.payment.presentation.management.mock.MetricsImplMock
 import jp.co.tis.lerna.payment.utility.scalatest.StandardSpec
 import lerna.management.stats.Metrics
 import lerna.testkit.airframe.DISessionSupport
-import org.scalatest.{ Inside, WordSpec }
+import org.scalatest.Inside
 import wvlet.airframe.Design
+import org.scalatest.wordspec.AnyWordSpec
 
 @SuppressWarnings(
   Array(
@@ -20,7 +21,7 @@ import wvlet.airframe.Design
     "org.wartremover.warts.Throw",
   ),
 )
-class MetricsRouteSpec extends WordSpec with StandardSpec with ScalatestRouteTest with Inside with DISessionSupport {
+class MetricsRouteSpec extends AnyWordSpec with StandardSpec with ScalatestRouteTest with Inside with DISessionSupport {
 
   override protected val diDesign: Design = PresentationDIDesign.presentationDesign
     .bind[ActorSystem].toProvider { config: Config =>

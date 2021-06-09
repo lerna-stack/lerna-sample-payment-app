@@ -23,10 +23,12 @@ import lerna.util.tenant.Tenant
 import lerna.util.trace.TraceId
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{ Seconds, Span }
-import org.scalatest.{ Inside, MustMatchers, WordSpecLike }
+import org.scalatest.Inside
 import wvlet.airframe.Design
 
 import scala.concurrent.Future
+import org.scalatest.matchers.must.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
 
 object IssuingServiceGatewayECPaymentApplicationSpec {
   private val issuingService = new IssuingServiceGateway {
@@ -60,8 +62,8 @@ object IssuingServiceGatewayECPaymentApplicationSpec {
 )
 class IssuingServiceGatewayECPaymentApplicationSpec
     extends StandardSpec
-    with WordSpecLike
-    with MustMatchers
+    with AnyWordSpecLike
+    with Matchers
     with DISessionSupport
     with JDBCSupport
     with Inside

@@ -25,10 +25,12 @@ import lerna.util.tenant.Tenant
 import lerna.util.time.{ FixedLocalDateTimeFactory, LocalDateTimeFactory }
 import lerna.util.trace.TraceId
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{ Inside, MustMatchers, WordSpecLike }
+import org.scalatest.Inside
 import wvlet.airframe.Design
 
 import scala.concurrent.Future
+import org.scalatest.matchers.must.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
 
 // Lint回避のため
 @SuppressWarnings(
@@ -43,8 +45,8 @@ import scala.concurrent.Future
 class PaymentActorSpec
     extends TestKit(ActorSystem("PaymentActorSpec"))
     with ImplicitSender
-    with WordSpecLike
-    with MustMatchers
+    with AnyWordSpecLike
+    with Matchers
     with DISessionSupport
     with JDBCSupport
     with Inside

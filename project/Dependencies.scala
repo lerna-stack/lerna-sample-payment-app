@@ -3,12 +3,12 @@ import sbt._
 object Dependencies {
 
   object Versions {
-    val lerna                    = "2.0.0-6bad8983-SNAPSHOT"
+    val lerna                    = "2.0.0-92f060be-SNAPSHOT"
     val akka                     = "2.6.10"
     val akkaHttp                 = "10.1.12"
     val akkaPersistenceCassandra = "1.0.1"
     val akkaProjection           = "1.1.0"
-    val scalaTest                = "3.0.9"
+    val scalaTest                = "3.1.4"
     val airframe                 = "20.9.0"
     val logback                  = "1.2.3"
     val slick                    = "3.3.2"
