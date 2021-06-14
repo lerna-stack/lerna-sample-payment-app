@@ -9,7 +9,7 @@ import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model._
 import jp.co.tis.lerna.payment.adapter.issuing.IssuingServiceGateway
 import jp.co.tis.lerna.payment.adapter.util.exception.BusinessException
 import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.PaymentActor.Sharding
-import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.{ Cancel, Command, Settle }
+import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.{ Cancel, Command, PaymentActor, Settle }
 import jp.co.tis.lerna.payment.application.util.tenant.actor.MultiTenantShardingSupport
 import jp.co.tis.lerna.payment.readmodel.JDBCService
 import jp.co.tis.lerna.payment.readmodel.schema.Tables
@@ -64,7 +64,12 @@ class IssuingServiceECPaymentApplicationImpl(
             replyTo,
             confirmTo,
           )
-          val tenantSupportEntityId = MultiTenantShardingSupport.tenantSupportEntityId(command.entityId)
+          val entityId = PaymentActor.entityId(
+            paymentParameter.clientId,
+            paymentParameter.walletShopId,
+            paymentParameter.orderId,
+          )
+          val tenantSupportEntityId = MultiTenantShardingSupport.tenantSupportEntityId(entityId)
           ShardingEnvelope[Command](tenantSupportEntityId, command)
         },
       ).flatMap {
@@ -88,7 +93,12 @@ class IssuingServiceECPaymentApplicationImpl(
             replyTo,
             confirmTo,
           )
-          val tenantSupportEntityId = MultiTenantShardingSupport.tenantSupportEntityId(command.entityId)
+          val entityId = PaymentActor.entityId(
+            paymentCancelParameter.clientId,
+            paymentCancelParameter.walletShopId,
+            paymentCancelParameter.orderId,
+          )
+          val tenantSupportEntityId = MultiTenantShardingSupport.tenantSupportEntityId(entityId)
           ShardingEnvelope[Command](tenantSupportEntityId, command)
         },
       ).flatMap {

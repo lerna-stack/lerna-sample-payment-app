@@ -1,7 +1,6 @@
 package jp.co.tis.lerna.payment.application.ecpayment.issuing.actor
 
 import akka.actor.typed.ActorRef
-import akka.cluster.sharding.ShardRegion.EntityId
 import com.typesafe.config.Config
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model.{ AmountTran, SettlementResponse }
 import jp.co.tis.lerna.payment.adapter.ecpayment.model.{ OrderId, WalletShopId }
@@ -42,7 +41,6 @@ sealed trait BusinessCommand extends Command {
   def clientId: ClientId
   def walletShopId: WalletShopId
   def orderId: OrderId
-  def entityId: EntityId = s"${clientId.value}-${walletShopId.value}-${orderId.value}"
   def appRequestContext: AppRequestContext
 }
 

@@ -2,12 +2,13 @@ package jp.co.tis.lerna.payment.application.ecpayment.issuing.actor
 
 import akka.actor.typed.scaladsl.{ ActorContext, Behaviors, TimerScheduler }
 import akka.actor.typed.{ ActorRef, ActorSystem }
+import akka.cluster.sharding.ShardRegion.EntityId
 import akka.cluster.sharding.typed.scaladsl.{ ClusterSharding, Entity, EntityContext, EntityTypeKey }
 import akka.cluster.sharding.typed.{ HashCodeMessageExtractor, ShardingEnvelope }
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.scaladsl.{ Effect, EventSourcedBehavior }
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model._
-import jp.co.tis.lerna.payment.adapter.ecpayment.model.WalletShopId
+import jp.co.tis.lerna.payment.adapter.ecpayment.model.{ OrderId, WalletShopId }
 import jp.co.tis.lerna.payment.adapter.issuing.IssuingServiceGateway
 import jp.co.tis.lerna.payment.adapter.issuing.model.{
   AcquirerReversalRequestParameter,
@@ -60,6 +61,9 @@ object PaymentActor extends AppTypedActorLogging {
       entityContext: EntityContext[Command],
       logger: AppLogger,
   ) extends MultiTenantShardingSupport[Command]
+
+  def entityId(clientId: ClientId, walletShopId: WalletShopId, orderId: OrderId): EntityId =
+    s"${clientId.value}-${walletShopId.value}-${orderId.value}"
 
   object Sharding {
 
