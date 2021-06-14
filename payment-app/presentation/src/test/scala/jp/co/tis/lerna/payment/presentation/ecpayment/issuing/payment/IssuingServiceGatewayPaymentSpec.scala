@@ -23,10 +23,12 @@ import jp.co.tis.lerna.payment.utility.tenant.Example
 import jp.co.tis.lerna.payment.utility.{ AppRequestContext, UtilityDIDesign }
 import lerna.testkit.airframe.DISessionSupport
 import lerna.util.trace.TraceId
-import org.scalatest.{ Inside, Matchers, WordSpec }
+import org.scalatest.Inside
 import wvlet.airframe.Design
 
 import scala.concurrent.Future
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 object IssuingServiceGatewayPaymentSpec {
   private val issuingServiceECPaymentApplication = new IssuingServiceECPaymentApplication {
@@ -75,7 +77,7 @@ object IssuingServiceGatewayPaymentSpec {
   ),
 )
 class IssuingServiceGatewayPaymentSpec
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with ScalatestRouteTest
     with ValidationJsonSupport

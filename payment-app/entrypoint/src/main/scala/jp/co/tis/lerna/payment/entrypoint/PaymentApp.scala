@@ -1,8 +1,5 @@
 package jp.co.tis.lerna.payment.entrypoint
 
-import java.security.SecureRandom
-import java.security.cert.X509Certificate
-
 import akka.Done
 import akka.actor.{ ActorSystem, CoordinatedShutdown, Scheduler }
 import akka.http.scaladsl.Http.ServerBinding
@@ -11,18 +8,17 @@ import akka.http.scaladsl.{ ConnectionContext, Http }
 import akka.stream.Materializer
 import com.typesafe.config.Config
 import com.typesafe.sslconfig.ssl.SSLConfigFactory
-import javax.net.ssl.{ KeyManager, SSLContext, X509TrustManager }
 import jp.co.tis.lerna.payment.adapter.util.health.HealthCheckApplication
 import jp.co.tis.lerna.payment.application.readmodelupdater.ReadModelUpdaterManager
 import jp.co.tis.lerna.payment.presentation.RootRoute
 import jp.co.tis.lerna.payment.presentation.util.directives.rejection.AppRejectionHandler
 import jp.co.tis.lerna.payment.presentation.util.errorhandling.AppExceptionHandler
 import jp.co.tis.lerna.payment.utility.tenant.AppTenant
-import kamon.Kamon
-import kamon.system.SystemMetrics
-import lerna.management.stats.Metrics
 import lerna.util.time.JavaDurationConverters._
 
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
+import javax.net.ssl.{ KeyManager, SSLContext, X509TrustManager }
 import scala.concurrent.Future
 import scala.util.{ Failure, Success }
 
@@ -30,7 +26,6 @@ import scala.util.{ Failure, Success }
 class PaymentApp(implicit
     val actorSystem: ActorSystem,
     rootRoute: RootRoute,
-    metrics: Metrics,
     config: Config,
     readModelUpdaterManager: ReadModelUpdaterManager,
     healthCheck: HealthCheckApplication,
@@ -41,9 +36,6 @@ class PaymentApp(implicit
   def start(): Unit = {
     healthCheckWithRetry() onComplete {
       case Success(_) =>
-        Kamon.addReporter(metrics)
-        SystemMetrics.startCollecting()
-
         if (!config.getBoolean("jp.co.tis.lerna.payment.rdbms-read-only")) {
           readModelUpdaterManager.startReadModelUpdaters()
         }

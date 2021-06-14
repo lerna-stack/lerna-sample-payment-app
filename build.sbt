@@ -54,6 +54,7 @@ lazy val `payment-app` = (project in file("."))
         // forkプロセスのstdoutをこのプロセスのstdout,stderrをこのプロセスのstderrに転送する
         // デフォルトのLoggedOutputでは、airframeやkamonが標準エラーに出力するログが[error]とプリフィクスがつき、紛らわしいためです。
         outputStrategy := Some(StdoutOutput),
+        resolvers += Resolver.sonatypeRepo("snapshots"),
       ),
     ),
     //
@@ -95,10 +96,6 @@ lazy val `payment-app` = (project in file("."))
         packageDirectoryAndContentsMapping(
           (baseDirectory.value / "docker/mock-server") -> (defaultLinuxInstallLocation.value + s"/${name.value}" + "/docker/mock-server"),
         ),
-        // Kamon が起動時に /apl/${name}/native/libsigar-amd64-linux.so を書き込む
-        packageTemplateMapping(
-          defaultLinuxInstallLocation.value + s"/${name.value}" + "/native",
-        )() withUser daemonUser.value withGroup daemonGroup.value,
       )
     },
     rpmRelease := sys.props.collectFirst { case ("rpm.release", v) => v }.getOrElse("1"),

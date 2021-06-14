@@ -7,7 +7,7 @@ import jp.co.tis.lerna.payment.adapter.issuing.model.{
   AuthorizationRequestParameter,
   IssuingServiceResponse,
 }
-import jp.co.tis.lerna.payment.adapter.util.exception.BusinessException
+import jp.co.tis.lerna.payment.adapter.util.OnlineProcessingFailureMessage
 import jp.co.tis.lerna.payment.adapter.wallet.{ ClientId, CustomerId }
 import jp.co.tis.lerna.payment.application.ecpayment.issuing.IssuingServicePayCredential
 import jp.co.tis.lerna.payment.application.util.tenant.MultiTenantSupportCommand
@@ -51,8 +51,12 @@ private[actor] trait InnerCommand extends Command {
 
 final case class SettlementResult(
     result: Either[
-      BusinessException,
-      (IssuingServicePayCredential, AuthorizationRequestParameter, Either[BusinessException, IssuingServiceResponse]),
+      OnlineProcessingFailureMessage,
+      (
+          IssuingServicePayCredential,
+          AuthorizationRequestParameter,
+          Either[OnlineProcessingFailureMessage, IssuingServiceResponse],
+      ),
     ],
 )(implicit
     val processingContext: ProcessingContext,
@@ -60,9 +64,9 @@ final case class SettlementResult(
 
 final case class CancelResult(
     result: Either[
-      BusinessException,
+      OnlineProcessingFailureMessage,
       (
-          Either[BusinessException, IssuingServiceResponse],
+          Either[OnlineProcessingFailureMessage, IssuingServiceResponse],
           IssuingServicePayCredential,
           AcquirerReversalRequestParameter,
       ),

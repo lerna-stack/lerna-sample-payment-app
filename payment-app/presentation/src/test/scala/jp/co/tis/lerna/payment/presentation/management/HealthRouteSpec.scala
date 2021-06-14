@@ -12,10 +12,11 @@ import jp.co.tis.lerna.payment.presentation.util.directives.GenTenantDirective
 import jp.co.tis.lerna.payment.utility.scalatest.StandardSpec
 import jp.co.tis.lerna.payment.utility.tenant.{ AppTenant, Example }
 import lerna.testkit.airframe.DISessionSupport
-import org.scalatest.{ Inside, WordSpec }
+import org.scalatest.Inside
 import wvlet.airframe.Design
 
 import scala.concurrent.Future
+import org.scalatest.wordspec.AnyWordSpec
 
 @SuppressWarnings(
   Array(
@@ -23,7 +24,7 @@ import scala.concurrent.Future
     "org.wartremover.warts.Equals",
   ),
 )
-class HealthRouteSpec extends WordSpec with StandardSpec with ScalatestRouteTest with Inside with DISessionSupport {
+class HealthRouteSpec extends AnyWordSpec with StandardSpec with ScalatestRouteTest with Inside with DISessionSupport {
 
   override protected val diDesign: Design = PresentationDIDesign.presentationDesign
     .bind[ActorSystem].toInstance(system)
