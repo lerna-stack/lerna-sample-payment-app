@@ -73,6 +73,7 @@ final case class HouseMoneySettlementNotificationImpl(rootConfig: Config, implic
           case StatusCodes.BadRequest =>
             Unmarshal(response.entity).to[NotificationErrorResponse].map { res =>
               logger.error(s"response Status Code: ${response.status.value}, code: ${res.errors
+                .map(_.map(_.code).toString())
                 .getOrElse(Errors("", "", "empty errors").code)}, message: ${res.message.getOrElse("empty message")}")
 
               val message = PayCompleteNotifyBadRequest("ハウスマネー決済完通知API呼び出し", res.message.getOrElse("-"))

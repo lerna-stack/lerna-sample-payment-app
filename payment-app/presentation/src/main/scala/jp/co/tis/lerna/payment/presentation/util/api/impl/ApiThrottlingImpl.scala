@@ -19,7 +19,7 @@ class ApiThrottlingImpl(rootConfig: Config) extends ApiThrottling with AppLoggin
       tenant <- AppTenant.values
       apiId  <- ApiId.values.toSeq
     } yield {
-      val apiConfig = config.getConfig(s"tenants.${tenant.id}.$apiId")
+      val apiConfig = config.getConfig(s"tenants.${tenant.id}.${apiId.toString}")
       val apiThrottlingState: ApiThrottlingState =
         if (!apiConfig.getBoolean("active")) Inactive
         else if (!apiConfig.getBoolean("rate-limit.active")) Nolimit
@@ -38,7 +38,8 @@ class ApiThrottlingImpl(rootConfig: Config) extends ApiThrottling with AppLoggin
   override def stateOf(apiId: ApiId)(implicit tenant: Tenant): ApiThrottlingState =
     apiThrottlingStateMap.get((apiId, tenant)) match {
       case Some(apiThrottlingState) => apiThrottlingState
-      case None                     => throw new IllegalStateException(s"流量制限設定不備のため処理できません。 apiId: $apiId, tenant: ${tenant.id}")
+      case None =>
+        throw new IllegalStateException(s"流量制限設定不備のため処理できません。 apiId: ${apiId.toString}, tenant: ${tenant.id}")
     }
 }
 

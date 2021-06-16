@@ -43,10 +43,10 @@ trait AppRejectionHandler
               respondWithContentTypeApplicationJsonUTF8 {
                 rejection match {
                   case inactiveApiRejection: InactiveApiRejection =>
-                    logger.info(s"APIが閉局されていたため拒否しました。 $inactiveApiRejection")
+                    logger.info(s"APIが閉局されていたため拒否しました。 ${inactiveApiRejection.toString}")
                     complete(StatusCodes.ServiceUnavailable -> maintenance)
                   case tooManyRequestsRejection: TooManyRequestsRejection =>
-                    logger.info(s"APIごとのレート制限を超えるリクエストを拒否しました。 $tooManyRequestsRejection")
+                    logger.info(s"APIごとのレート制限を超えるリクエストを拒否しました。 ${tooManyRequestsRejection.toString}")
                     complete(StatusCodes.ServiceUnavailable -> tooManyRequests)
                   case _: AuthenticationFailedRejection =>
                     complete(StatusCodes.Unauthorized -> unauthorized)
@@ -57,7 +57,7 @@ trait AppRejectionHandler
                       StatusCodes.MethodNotAllowed -> s"HTTP method not allowed, supported methods: ${rejection.supported.name}",
                     )
                   case other =>
-                    logger.warn(s"rejection: $other")
+                    logger.warn(s"rejection: ${other.toString}")
                     complete(StatusCodes.InternalServerError -> HttpEntity.Empty)
                 }
               }

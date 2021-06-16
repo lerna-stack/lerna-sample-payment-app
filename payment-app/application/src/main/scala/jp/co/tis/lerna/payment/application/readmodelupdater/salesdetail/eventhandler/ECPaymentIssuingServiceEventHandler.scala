@@ -123,8 +123,8 @@ class ECPaymentIssuingServiceEventHandler(
       case Some(throwable) =>
         val message = s"""ReadModelの更新に失敗しました。
                          |persistenceId: ${envelope.persistenceId},
-                         |sequenceNr: ${envelope.sequenceNr},
-                         |event: ${envelope.event}
+                         |sequenceNr: ${envelope.sequenceNr.toString},
+                         |event: ${envelope.event.toString}
                          |""".stripMargin
         logger.error(throwable, message)
     }
@@ -331,7 +331,7 @@ class ECPaymentIssuingServiceEventHandler(
           // 2件以上（履歴不備）
           // ※ 必ず1件になるように運用する
           logger.error(
-            s"SalesDetail.eventPersistenceId === $eventPersistenceId & saleCancelType === 売上(01) の取得結果が ${results.length} 件です。",
+            s"SalesDetail.eventPersistenceId === $eventPersistenceId & saleCancelType === 売上(01) の取得結果が ${results.length.toString} 件です。",
           )
           None
       }

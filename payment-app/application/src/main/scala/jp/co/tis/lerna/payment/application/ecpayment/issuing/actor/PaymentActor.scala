@@ -150,7 +150,7 @@ object PaymentActor extends AppTypedActorLogging {
   }
 
   def entityId(clientId: ClientId, walletShopId: WalletShopId, orderId: OrderId): EntityId =
-    s"${clientId.value}-${walletShopId.value}-${orderId.value}"
+    s"${clientId.value.toString}-${walletShopId.value}-${orderId.value}"
 
   object Sharding {
 
@@ -294,7 +294,7 @@ object PaymentActor extends AppTypedActorLogging {
 
       case payRequest: Settle =>
         import payRequest.appRequestContext
-        setup.logger.debug(s"IssuingService : $payRequest")
+        setup.logger.debug(s"IssuingService : ${payRequest.toString}")
 
         // リクエスト直前の時刻をこちらで作成（変数化）
         val systemTime = setup.dateTimeFactory.now()
@@ -420,7 +420,7 @@ object PaymentActor extends AppTypedActorLogging {
       case StopActor =>
         implicit def tenant: AppTenant = setup.tenant // `import setup.tenant` だと型推論がうまく動かないため def で型を明示
         import lerna.util.tenant.TenantComponentLogContext.logContext
-        setup.logger.info(s"[state: $this, receive: StopActor] 処理結果待ちのため終了処理を保留します")
+        setup.logger.info(s"[state: ${this.toString}, receive: StopActor] 処理結果待ちのため終了処理を保留します")
         Effect.stash()
 
       case paymentResult: SettlementResult =>
@@ -436,7 +436,7 @@ object PaymentActor extends AppTypedActorLogging {
                   case `errCodeOk` =>
                     val res = SettlementSuccessResponse()
                     setup.logger.debug(
-                      s"status ok: paymentProcessing, systemTime: $systemTime ",
+                      s"status ok: paymentProcessing, systemTime: ${systemTime.toString} ",
                     )
 
                     val event =
@@ -708,7 +708,7 @@ object PaymentActor extends AppTypedActorLogging {
       case StopActor =>
         implicit def tenant: AppTenant = setup.tenant // `import setup.tenant` だと型推論がうまく動かないため def で型を明示
         import lerna.util.tenant.TenantComponentLogContext.logContext
-        setup.logger.info(s"[state: $this, receive: StopActor] 処理結果待ちのため終了処理を保留します")
+        setup.logger.info(s"[state: ${this.toString}, receive: StopActor] 処理結果待ちのため終了処理を保留します")
         Effect.stash()
 
       case `processingTimeoutMessage` =>
@@ -892,7 +892,7 @@ object PaymentActor extends AppTypedActorLogging {
         setup.logger.info("すでに処理済みのため、前回の処理結果を返します(前回とキーが同じリクエストが来ました)")
 
         setup.logger.info(
-          s"status: failed, msg: $msg",
+          s"status: failed, msg: ${msg.toString}",
         )
         stopSelfSafely()
         Effect.reply(msg.replyTo)(SettlementFailureResponse(message))

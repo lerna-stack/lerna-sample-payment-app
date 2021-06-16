@@ -19,7 +19,10 @@ object MultiTenantShardingSupport {
 
   private[this] def encode(str: String) = {
     val encodedString = URLEncoder.encode(str, StandardCharsets.UTF_8.name)
-    encodedString.ensuring(!_.contains(delimiter), s"encodedString should not contain delimiter [${delimiter}]")
+    encodedString.ensuring(
+      !_.contains(delimiter),
+      s"encodedString should not contain delimiter [${delimiter.toString}]",
+    )
   }
   private[this] def decode(str: String) = URLDecoder.decode(str, StandardCharsets.UTF_8.name)
 
@@ -27,13 +30,13 @@ object MultiTenantShardingSupport {
     val encodedTenantId         = encode(tenant.id)
     val encodedOriginalEntityId = encode(entityId)
 
-    s"${encodedTenantId}${delimiter}${encodedOriginalEntityId}"
+    s"${encodedTenantId}${delimiter.toString}${encodedOriginalEntityId}"
   }
 
   private[tenant] def extractTenantAndEntityId(entityId: String): (AppTenant, String) = {
     require(
       entityId.count(_ === delimiter) === 1,
-      s"The entityId must be able to be split in exactly 2 with the delimiter [${delimiter}]",
+      s"The entityId must be able to be split in exactly 2 with the delimiter [${delimiter.toString}]",
     )
 
     val Array(encodedTenantId, encodedOriginalEntityId) = entityId.split(delimiter)

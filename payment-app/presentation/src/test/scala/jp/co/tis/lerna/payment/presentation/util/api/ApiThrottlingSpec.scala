@@ -42,7 +42,7 @@ class ApiThrottlingSpec extends StandardSpec with Inside with DISessionSupport {
       val rootConfig = ConfigFactory
         .parseString(s"""
            |jp.co.tis.lerna.payment.presentation.util.api.tenants.${tenant.id} {
-           |  ${apiId} {
+           |  ${apiId.toString} {
            |    // on: 開局, off: 閉局
            |    active = off
            |  }
@@ -62,7 +62,7 @@ class ApiThrottlingSpec extends StandardSpec with Inside with DISessionSupport {
         val rootConfig = ConfigFactory
           .parseString(s"""
                                                       |jp.co.tis.lerna.payment.presentation.util.api.tenants.${tenant.id} {
-                                                      |  ${apiId} {
+                                                      |  ${apiId.toString} {
                                                       |    // on: 開局, off: 閉局
                                                       |    active = on
                                                       |    rate-limit {
@@ -89,14 +89,14 @@ class ApiThrottlingSpec extends StandardSpec with Inside with DISessionSupport {
         val rootConfig = ConfigFactory
           .parseString(s"""
                                                       |jp.co.tis.lerna.payment.presentation.util.api.tenants.${tenant.id} {
-                                                      |  ${apiId} {
+                                                      |  ${apiId.toString} {
                                                       |    // on: 開局, off: 閉局
                                                       |    active = on
                                                       |    rate-limit {
                                                       |      // 流量制限 (TPS)
                                                       |      active = on
-                                                      |      transactions = ${transactions}
-                                                      |      duration     = ${duration.toSeconds} s // 秒以上単位
+                                                      |      transactions = ${transactions.toString}
+                                                      |      duration     = ${duration.toSeconds.toString} s // 秒以上単位
                                                       |    }
                                                       |  }
                                                       |}

@@ -7,10 +7,11 @@ import org.scalatest.BeforeAndAfterAll
 class MultiTenantShardingSupportSpec extends StandardSpec with BeforeAndAfterAll {
 
   import jp.co.tis.lerna.payment.application.util.tenant.actor.MultiTenantShardingSupport.{
-    delimiter,
     extractTenantAndEntityId,
     tenantSupportEntityId,
   }
+
+  private val delimiter = MultiTenantShardingSupport.delimiter.toString
 
   "tenantSupportEntityId() & extractTenantAndEntityId()" when {
     "すべてのテナントで" should {
