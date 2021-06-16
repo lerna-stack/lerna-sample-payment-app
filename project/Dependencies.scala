@@ -3,7 +3,7 @@ import sbt._
 object Dependencies {
 
   object Versions {
-    val lerna                    = "2.0.0-92f060be-SNAPSHOT"
+    val lerna                    = "2.0.0-f8684d32-SNAPSHOT"
     val akka                     = "2.6.10"
     val akkaHttp                 = "10.1.12"
     val akkaPersistenceCassandra = "1.0.1"
@@ -36,6 +36,7 @@ object Dependencies {
   object Akka {
     val slf4j                = "com.typesafe.akka" %% "akka-slf4j"                  % Versions.akka
     val actor                = "com.typesafe.akka" %% "akka-actor"                  % Versions.akka
+    val actorTyped           = "com.typesafe.akka" %% "akka-actor-typed"            % Versions.akka
     val stream               = "com.typesafe.akka" %% "akka-stream"                 % Versions.akka
     val cluster              = "com.typesafe.akka" %% "akka-cluster"                % Versions.akka
     val clusterTyped         = "com.typesafe.akka" %% "akka-cluster-typed"          % Versions.akka
