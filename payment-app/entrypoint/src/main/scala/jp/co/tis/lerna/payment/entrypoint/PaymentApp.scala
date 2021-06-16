@@ -5,7 +5,6 @@ import akka.actor.{ ActorSystem, CoordinatedShutdown, Scheduler }
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.server.Route
-import akka.stream.Materializer
 import com.typesafe.config.Config
 import jp.co.tis.lerna.payment.adapter.util.health.HealthCheckApplication
 import jp.co.tis.lerna.payment.application.readmodelupdater.ReadModelUpdaterManager
@@ -49,11 +48,10 @@ class PaymentApp(implicit
     }
   }
 
-  private[this] def startServer(typeName: String, route: Route, interface: String, port: Int)(implicit
-      fm: Materializer,
-  ): Unit = {
+  private[this] def startServer(typeName: String, route: Route, interface: String, port: Int): Unit = {
     Http()
-      .bindAndHandle(route, interface, port)
+      .newServerAt(interface, port)
+      .bind(route)
       .foreach { serverBinding =>
         addToShutdownHook(typeName, serverBinding)
       }
