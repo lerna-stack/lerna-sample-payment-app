@@ -130,6 +130,7 @@ lazy val `presentation` = (project in file("payment-app/presentation"))
       Lerna.validation,
       Lerna.management,
       Airframe.airframe,
+      Akka.actorTyped,
       Akka.stream,
       AkkaHttp.http,
       AkkaHttp.sprayJson,
