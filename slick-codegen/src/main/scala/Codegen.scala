@@ -23,7 +23,7 @@ object Codegen extends App {
 
   val config                         = ConfigFactory.load().getConfig("slick.codegen")
   val dbConfig                       = DatabaseConfig.forConfig[JdbcProfile]("", config)
-  val excludeTableNames: Seq[String] = config.getStringList("excludeTableNames").asScala
+  val excludeTableNames: Seq[String] = config.getStringList("excludeTableNames").asScala.toSeq
   import dbConfig._
 
   val tables = profile.defaultTables.map(_.filterNot { table =>
