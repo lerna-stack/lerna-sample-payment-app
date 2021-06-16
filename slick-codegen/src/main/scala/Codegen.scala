@@ -80,6 +80,7 @@ object Codegen extends App {
            |    "org.wartremover.warts.AsInstanceOf",
            |    "org.wartremover.warts.OptionPartial",
            |    "org.wartremover.warts.Throw",
+           |    "org.wartremover.warts.TraversableOps",
            |    "org.wartremover.contrib.warts.MissingOverride",
            |    "org.wartremover.contrib.warts.SomeApply",
            |    "lerna.warts.NamingDef",
