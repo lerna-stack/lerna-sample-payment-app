@@ -176,9 +176,6 @@ object PaymentActor extends AppTypedActorLogging {
 
         implicit val processingContext: ProcessingContext =
           ProcessingContext(
-            clientId = payRequest.clientId,
-            walletShopId = payRequest.walletShopId,
-            orderId = payRequest.orderId,
             replyTo = payRequest.replyTo,
           )
 
@@ -466,9 +463,6 @@ object PaymentActor extends AppTypedActorLogging {
 
         implicit val processingContext: ProcessingContext =
           ProcessingContext(
-            clientId = msg.clientId,
-            walletShopId = msg.walletShopId,
-            orderId = msg.orderId,
             replyTo = msg.replyTo,
           )
 

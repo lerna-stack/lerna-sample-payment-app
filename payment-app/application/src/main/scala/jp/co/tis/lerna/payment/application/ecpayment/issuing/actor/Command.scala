@@ -38,9 +38,6 @@ object ProcessingTimeout {
 }
 
 sealed trait BusinessCommand extends Command {
-  def clientId: ClientId
-  def walletShopId: WalletShopId
-  def orderId: OrderId
   def appRequestContext: AppRequestContext
 }
 
@@ -76,10 +73,6 @@ private[actor] sealed trait InnerBusinessCommand extends BusinessCommand {
   implicit def processingContext: ProcessingContext
 
   implicit override def appRequestContext: AppRequestContext = processingContext.appRequestContext
-
-  override def clientId: ClientId         = processingContext.clientId
-  override def walletShopId: WalletShopId = processingContext.walletShopId
-  override def orderId: OrderId           = processingContext.orderId
 }
 
 final case class SettlementResult(
