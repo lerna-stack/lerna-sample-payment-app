@@ -3,7 +3,6 @@ package jp.co.tis.lerna.payment.application.readmodelupdater.tagging
 import akka.actor.ExtendedActorSystem
 import akka.persistence.journal.{ Tagged, WriteEventAdapter }
 import jp.co.tis.lerna.payment.application.readmodelupdater.tagging.salesdetail.SalesDetailEventToTags
-import jp.co.tis.lerna.payment.application.readmodelupdater.tagging.salesdetail.SalesDetailEventToTags
 
 class TaggingEventAdapter(system: ExtendedActorSystem) extends WriteEventAdapter {
   override def manifest(event: Any): String = "" // when no manifest needed, return ""
