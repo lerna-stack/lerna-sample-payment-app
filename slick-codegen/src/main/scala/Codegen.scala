@@ -8,7 +8,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.util.{ Failure, Success }
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 @SuppressWarnings(
   Array(
