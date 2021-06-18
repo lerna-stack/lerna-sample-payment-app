@@ -2,12 +2,11 @@ package jp.co.tis.lerna.payment.entrypoint
 
 import akka.Done
 import akka.actor.{ ActorSystem, CoordinatedShutdown, Scheduler }
+import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.{ ConnectionContext, Http }
 import akka.stream.Materializer
 import com.typesafe.config.Config
-import com.typesafe.sslconfig.ssl.SSLConfigFactory
 import jp.co.tis.lerna.payment.adapter.util.health.HealthCheckApplication
 import jp.co.tis.lerna.payment.application.readmodelupdater.ReadModelUpdaterManager
 import jp.co.tis.lerna.payment.presentation.RootRoute
@@ -16,9 +15,6 @@ import jp.co.tis.lerna.payment.presentation.util.errorhandling.AppExceptionHandl
 import jp.co.tis.lerna.payment.utility.tenant.AppTenant
 import lerna.util.time.JavaDurationConverters._
 
-import java.security.SecureRandom
-import java.security.cert.X509Certificate
-import javax.net.ssl.{ KeyManager, SSLContext, X509TrustManager }
 import scala.concurrent.Future
 import scala.util.{ Failure, Success }
 
@@ -41,22 +37,6 @@ class PaymentApp(implicit
         }
         val privateInternetInterface = config.getString("private-internet.http.interface")
         val privateInternetPort      = config.getInt("private-internet.http.port")
-
-        // TODO
-        //  AkkaSSLConfig は非推奨になった
-        //  - 設定値のパスをAkka非依存になるように変更する (akka.ssl-configは参照しない)
-        // See
-        //  - https://doc.akka.io/docs/akka/current/project/migration-guide-2.5.x-2.6.x.html#akkasslconfig
-        //  - https://github.com/akka/akka/issues/21753
-        val disableHostnameVerification: Boolean = {
-          val akkaOverrides = config.getConfig("akka.ssl-config")
-          val defaults      = config.getConfig("ssl-config")
-          val sslConfig     = SSLConfigFactory.parse(akkaOverrides.withFallback(defaults))
-          sslConfig.loose.disableHostnameVerification
-        }
-        if (disableHostnameVerification) {
-          enableLooseX509TrustManager()
-        }
 
         startServer("private-internet", rootRoute.privateInternetRoute, privateInternetInterface, privateInternetPort)
 
@@ -103,34 +83,6 @@ class PaymentApp(implicit
           Done
         }
     }
-  }
-
-  /** !!! 開発用に SSL の検証を無効化する設定 !!!
-    * https://github.com/akka/akka/issues/18334#issuecomment-137687990
-    *
-    * FIXME: 本番では使わない
-    */
-  private[this] def enableLooseX509TrustManager(): Unit = {
-    // TODO
-    //  - SSLEngineを構築する方法に切り替える
-    //  - 可能な限りエントリポイントごとの設定値に変更する (グローバルに変更しない)
-    // See
-    //  - https://doc.akka.io/docs/akka-http/current/client-side/client-https-support.html#disabling-hostname-verification
-    import lerna.log.SystemComponentLogContext.logContext
-    logger.warn(
-      "Hostname Verification of HTTPS is disabled. This is not intended for the production environment.",
-    )
-    val trustfulSslContext: SSLContext = {
-      object NoCheckX509TrustManager extends X509TrustManager {
-        override def checkClientTrusted(chain: Array[X509Certificate], authType: String): Unit = ()
-        override def checkServerTrusted(chain: Array[X509Certificate], authType: String): Unit = ()
-        override def getAcceptedIssuers: Array[X509Certificate]                                = Array[X509Certificate]()
-      }
-      val context = SSLContext.getInstance("TLS")
-      context.init(Array[KeyManager](), Array(NoCheckX509TrustManager), new SecureRandom())
-      context
-    }
-    Http().setDefaultClientHttpsContext(ConnectionContext.https(trustfulSslContext))
   }
 
   private def healthCheckWithRetry(): Future[Done] = {

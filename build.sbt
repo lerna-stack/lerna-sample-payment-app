@@ -37,7 +37,6 @@ lazy val `payment-app` = (project in file("."))
           Seq(
             // ローカル開発環境でのみ有効にしたい環境変数はここで指定する。
             "-Djp.co.tis.lerna.payment.server-mode=DEV",
-            "-Dakka.ssl-config.loose.disableHostnameVerification=true",
             """-Dlerna.util.encryption.base64-key="v5LCFG4V1CbJxxPg+WTd8w=="""",
             """-Dlerna.util.encryption.base64-iv="46A7peszgqN3q/ww4k8lWg=="""",
             "-Djp.co.tis.lerna.payment.presentation.util.api.default.BASE.active=on",
