@@ -51,7 +51,7 @@ class PaymentApp(implicit
   private[this] def startServer(typeName: String, route: Route, interface: String, port: Int): Unit = {
     Http()
       .newServerAt(interface, port)
-      .bind(route)
+      .bind(Route.seal(route))
       .foreach { serverBinding =>
         addToShutdownHook(typeName, serverBinding)
       }
