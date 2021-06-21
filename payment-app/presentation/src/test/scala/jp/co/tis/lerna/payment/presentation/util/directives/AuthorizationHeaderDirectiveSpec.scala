@@ -72,7 +72,7 @@ class AuthorizationHeaderDirectiveSpec
     "異常系: tokenが適切なものではなかった Forbidden" in {
       val request =
         Post("/").addHeader(Authorization(OAuth2BearerToken("Forbidden")))
-      request ~> route ~> check {
+      request ~> Route.seal(route) ~> check {
         expect {
           status === StatusCodes.Forbidden
         }
