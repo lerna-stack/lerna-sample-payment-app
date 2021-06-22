@@ -16,7 +16,7 @@ import jp.co.tis.lerna.payment.adapter.issuing.model.{
 import jp.co.tis.lerna.payment.adapter.util._
 import jp.co.tis.lerna.payment.adapter.util.exception.BusinessException
 import jp.co.tis.lerna.payment.adapter.wallet.{ ClientId, CustomerId }
-import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.PaymentActor.withLogger
+import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.PaymentActor._
 import jp.co.tis.lerna.payment.application.ecpayment.issuing.{ PaymentIdFactory, TransactionIdFactory }
 import jp.co.tis.lerna.payment.application.util.tenant.actor.MultiTenantShardingSupportTestHelper
 import jp.co.tis.lerna.payment.readmodel.schema.Tables

@@ -7,6 +7,7 @@ import akka.cluster.sharding.typed.scaladsl.{ ClusterSharding, Entity, EntityCon
 import akka.cluster.sharding.typed.{ HashCodeMessageExtractor, ShardingEnvelope }
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.scaladsl.{ Effect, EventSourcedBehavior }
+import com.typesafe.config.Config
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model._
 import jp.co.tis.lerna.payment.adapter.ecpayment.model.{ OrderId, WalletShopId }
 import jp.co.tis.lerna.payment.adapter.issuing.IssuingServiceGateway
@@ -34,10 +35,11 @@ import jp.co.tis.lerna.payment.readmodel.schema.Tables
 import jp.co.tis.lerna.payment.utility.AppRequestContext
 import jp.co.tis.lerna.payment.utility.tenant.AppTenant
 import lerna.log.{ AppLogger, AppTypedActorLogging }
+import lerna.util.akka.AtLeastOnceDelivery
 import lerna.util.lang.Equals._
 import lerna.util.time.JavaDurationConverters._
 import lerna.util.time.LocalDateTimeFactory
-import lerna.util.trace.TraceId
+import lerna.util.trace.{ RequestContext, TraceId }
 
 import java.time
 import java.time.LocalDateTime
@@ -48,6 +50,87 @@ import scala.util.{ Failure, Success }
 /** アクターのコンパニオンオブジェクト
   */
 object PaymentActor extends AppTypedActorLogging {
+
+  sealed trait Command
+
+  case object StopActor extends Command
+
+  case object ReceiveTimeout extends Command
+
+  final case class ProcessingTimeout(timeout: lerna.util.akka.ProcessingTimeout) extends Command {
+    def timeLeft(implicit dateTimeFactory: LocalDateTimeFactory): FiniteDuration = timeout.timeLeft
+    implicit def requestContext: RequestContext                                  = timeout.requestContext
+  }
+
+  object ProcessingTimeout {
+    def apply(acceptedDateTime: LocalDateTime, askTimeout: FiniteDuration, config: Config)(implicit
+        requestContext: RequestContext,
+    ): ProcessingTimeout = apply(lerna.util.akka.ProcessingTimeout(acceptedDateTime, askTimeout, config))
+  }
+
+  sealed trait BusinessCommand extends Command {
+    def appRequestContext: AppRequestContext
+  }
+
+  trait AtLeastOnceDeliveryAcceptable {
+    def confirmTo: ActorRef[AtLeastOnceDelivery.Confirm]
+    def accept(): Unit = confirmTo ! AtLeastOnceDelivery.Confirm
+  }
+
+  final case class Settle(
+      clientId: ClientId,
+      customerId: CustomerId,
+      walletShopId: WalletShopId,
+      orderId: OrderId,
+      amountTran: AmountTran,
+      replyTo: ActorRef[SettlementResponse],
+      confirmTo: ActorRef[AtLeastOnceDelivery.Confirm],
+  )(implicit val appRequestContext: AppRequestContext)
+      extends BusinessCommand
+      with AtLeastOnceDeliveryAcceptable
+
+  final case class Cancel(
+      clientId: ClientId,
+      customerId: CustomerId,
+      walletShopId: WalletShopId,
+      orderId: OrderId,
+      replyTo: ActorRef[SettlementResponse],
+      confirmTo: ActorRef[AtLeastOnceDelivery.Confirm],
+  )(implicit val appRequestContext: AppRequestContext)
+      extends BusinessCommand
+      with AtLeastOnceDeliveryAcceptable
+
+  private[actor] sealed trait InnerBusinessCommand extends BusinessCommand {
+    implicit def processingContext: ProcessingContext
+
+    implicit override def appRequestContext: AppRequestContext = processingContext.appRequestContext
+  }
+
+  final case class SettlementResult(
+      result: Either[
+        OnlineProcessingFailureMessage,
+        (
+            IssuingServicePayCredential,
+            AuthorizationRequestParameter,
+            Either[OnlineProcessingFailureMessage, IssuingServiceResponse],
+        ),
+      ],
+  )(implicit
+      val processingContext: ProcessingContext,
+  ) extends InnerBusinessCommand
+
+  final case class CancelResult(
+      result: Either[
+        OnlineProcessingFailureMessage,
+        (
+            Either[OnlineProcessingFailureMessage, IssuingServiceResponse],
+            IssuingServicePayCredential,
+            AcquirerReversalRequestParameter,
+        ),
+      ],
+  )(implicit
+      val processingContext: ProcessingContext,
+  ) extends InnerBusinessCommand
 
   private[actor] final case class Setup(
       gateway: IssuingServiceGateway,

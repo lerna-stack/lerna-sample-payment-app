@@ -1,7 +1,6 @@
 package jp.co.tis.lerna.payment.application.ecpayment.issuing.actor
 
 import java.time.LocalDateTime
-
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model.{ IntranId, SettlementSuccessResponse }
 import jp.co.tis.lerna.payment.adapter.issuing.model.{
   AcquirerReversalRequestParameter,
@@ -11,6 +10,7 @@ import jp.co.tis.lerna.payment.adapter.issuing.model.{
 import jp.co.tis.lerna.payment.adapter.util.OnlineProcessingFailureMessage
 import jp.co.tis.lerna.payment.adapter.wallet.CustomerId
 import jp.co.tis.lerna.payment.application.ecpayment.issuing.IssuingServicePayCredential
+import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.PaymentActor.{ Cancel, Settle }
 import jp.co.tis.lerna.payment.application.readmodelupdater.salesdetail.model.{
   MultipleResultTransaction,
   SalesDetailDomainEvent,

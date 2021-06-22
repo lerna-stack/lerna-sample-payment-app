@@ -25,6 +25,7 @@ import jp.co.tis.lerna.payment.adapter.util.{
 import jp.co.tis.lerna.payment.adapter.wallet.{ ClientId, CustomerId, WalletId }
 import jp.co.tis.lerna.payment.application.ApplicationDIDesign
 import jp.co.tis.lerna.payment.application.ecpayment.issuing.IssuingServicePayCredential
+import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.PaymentActor._
 import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor._
 import jp.co.tis.lerna.payment.application.readmodelupdater.salesdetail.EventPersistenceInfo
 import jp.co.tis.lerna.payment.readmodel.constant.{ LogicalDeleteFlag, SaleCancelType }

@@ -8,8 +8,8 @@ import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.IssuingServiceECPayment
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model._
 import jp.co.tis.lerna.payment.adapter.issuing.IssuingServiceGateway
 import jp.co.tis.lerna.payment.adapter.util.exception.BusinessException
-import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.PaymentActor.Sharding
-import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.{ Cancel, Command, PaymentActor, Settle }
+import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.PaymentActor
+import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.PaymentActor.{ Cancel, Command, Settle, Sharding }
 import jp.co.tis.lerna.payment.application.util.tenant.actor.MultiTenantShardingSupport
 import jp.co.tis.lerna.payment.readmodel.JDBCService
 import jp.co.tis.lerna.payment.readmodel.schema.Tables
