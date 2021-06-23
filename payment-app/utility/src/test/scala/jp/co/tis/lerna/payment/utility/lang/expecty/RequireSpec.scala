@@ -14,8 +14,8 @@ final class RequireSpec extends StandardSpec {
       val exception = intercept[IllegalArgumentException] {
         require(1 == 2, "my custom message")
       }
-      exception.getMessage must include("requirement failed: my custom message")
-      exception.getMessage must include("""require(1 == 2, "my custom message")""")
+      exception.getMessage should include("requirement failed: my custom message")
+      exception.getMessage should include("""require(1 == 2, "my custom message")""")
     }
   }
 
@@ -32,8 +32,8 @@ final class RequireSpec extends StandardSpec {
       val exception = intercept[IllegalArgumentException] {
         require(1 == 2, "my custom message")
       }
-      exception.getMessage must include("requirement failed: my custom message")
-      exception.getMessage must include("""require(1 == 2, "my custom message")""")
+      exception.getMessage should include("requirement failed: my custom message")
+      exception.getMessage should include("""require(1 == 2, "my custom message")""")
     }
   }
 

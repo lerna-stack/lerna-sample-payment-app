@@ -66,7 +66,7 @@ class HouseMoneySettlementNotificationImplSpec
       )
 
       whenReady(notificationSystemGateway.notice("1")) { res =>
-        res mustBe a[NotificationSuccess]
+        res shouldBe a[NotificationSuccess]
       }
 
       val except = """{"walletSettlementId":"1"}"""
@@ -86,7 +86,7 @@ class HouseMoneySettlementNotificationImplSpec
       )
 
       whenReady(notificationSystemGateway.notice("1")) { res =>
-        res mustBe a[NotificationFailure]
+        res shouldBe a[NotificationFailure]
       }
     }
 
@@ -96,7 +96,7 @@ class HouseMoneySettlementNotificationImplSpec
       )
 
       whenReady(notificationSystemGateway.notice("1")) { res =>
-        res mustBe a[NotificationFailure]
+        res shouldBe a[NotificationFailure]
       }
     }
 
@@ -106,7 +106,7 @@ class HouseMoneySettlementNotificationImplSpec
       )
 
       whenReady(notificationSystemGateway.notice("1")) { res =>
-        res mustBe a[NotificationFailure]
+        res shouldBe a[NotificationFailure]
       }
     }
 
@@ -130,7 +130,7 @@ class HouseMoneySettlementNotificationImplSpec
       val badNotificationSystemGateway = diDesign.newSession.build[HouseMoneySettlementNotification]
 
       whenReady(badNotificationSystemGateway.notice("1")) { res =>
-        res mustBe a[NotificationFailure]
+        res shouldBe a[NotificationFailure]
       }
     }
   }

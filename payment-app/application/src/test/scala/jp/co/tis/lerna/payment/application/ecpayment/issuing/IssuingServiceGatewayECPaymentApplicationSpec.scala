@@ -28,7 +28,6 @@ import org.scalatest.Inside
 import wvlet.airframe.Design
 
 import scala.concurrent.Future
-import org.scalatest.matchers.must.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 
 object IssuingServiceGatewayECPaymentApplicationSpec {
@@ -64,7 +63,6 @@ object IssuingServiceGatewayECPaymentApplicationSpec {
 class IssuingServiceGatewayECPaymentApplicationSpec
     extends StandardSpec
     with AnyWordSpecLike
-    with Matchers
     with DISessionSupport
     with JDBCSupport
     with Inside

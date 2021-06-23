@@ -275,7 +275,7 @@ class ECPaymentIssuingServiceEventHandlerSpec
         )
 
       whenReady(jdbcService.db.run(eventHandler.handle(event).transactionally)) { res =>
-        res mustBe None
+        res shouldBe None
       }
 
       val action = SalesDetail
@@ -359,7 +359,7 @@ class ECPaymentIssuingServiceEventHandlerSpec
         )
 
       whenReady(jdbcService.db.run(eventHandler.handle(event).transactionally)) { res =>
-        res mustBe None
+        res shouldBe None
       }
 
       val action = SalesDetail
@@ -614,7 +614,7 @@ class ECPaymentIssuingServiceEventHandlerSpec
         )
 
       whenReady(jdbcService.db.run(eventHandler.handle(event).transactionally)) { res =>
-        res mustBe None
+        res shouldBe None
       }
 
       val action = SalesDetail
@@ -699,7 +699,7 @@ class ECPaymentIssuingServiceEventHandlerSpec
         )
 
       whenReady(jdbcService.db.run(eventHandler.handle(event).transactionally)) { res =>
-        res mustBe None
+        res shouldBe None
       }
 
       val action = SalesDetail

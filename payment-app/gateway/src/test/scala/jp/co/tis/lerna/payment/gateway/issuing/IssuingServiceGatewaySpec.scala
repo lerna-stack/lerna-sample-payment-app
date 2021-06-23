@@ -300,7 +300,7 @@ class IssuingServiceGatewaySpec
       )
 
       whenReady(newGateway.requestAcquirerReversal(acquirerReversalRequestParameter, originalRequest).failed) {
-        _ mustBe a[BusinessException]
+        _ shouldBe a[BusinessException]
       }
     }
   }
