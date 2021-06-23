@@ -4,7 +4,7 @@ import akka.actor.typed.scaladsl.{ ActorContext, Behaviors, TimerScheduler }
 import akka.actor.typed.{ ActorRef, ActorSystem }
 import akka.cluster.sharding.ShardRegion.EntityId
 import akka.cluster.sharding.typed.scaladsl.{ ClusterSharding, Entity, EntityContext, EntityTypeKey }
-import akka.cluster.sharding.typed.{ HashCodeMessageExtractor, ShardingEnvelope }
+import akka.cluster.sharding.typed.ShardingEnvelope
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.scaladsl.{ Effect, EventSourcedBehavior }
 import com.typesafe.config.Config
@@ -160,8 +160,6 @@ object PaymentActor extends AppTypedActorLogging {
     )(implicit
         system: ActorSystem[Nothing],
     ): ActorRef[ShardingEnvelope[Command]] = {
-      val numberOfShards = 100
-
       val clusterSharding = ClusterSharding(system)
 
       val shardRegion: ActorRef[ShardingEnvelope[Command]] =
@@ -188,7 +186,6 @@ object PaymentActor extends AppTypedActorLogging {
               })
             })
           })
-            .withMessageExtractor(new HashCodeMessageExtractor(numberOfShards))
             .withStopMessage(StopActor),
         )
 
