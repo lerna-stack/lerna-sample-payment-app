@@ -1,6 +1,5 @@
 package jp.co.tis.lerna.payment.presentation.management
 
-import akka.actor.ActorSystem
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import com.typesafe.config.{ Config, ConfigFactory }
@@ -24,9 +23,6 @@ import org.scalatest.wordspec.AnyWordSpec
 class MetricsRouteSpec extends AnyWordSpec with StandardSpec with ScalatestRouteTest with Inside with DISessionSupport {
 
   override protected val diDesign: Design = PresentationDIDesign.presentationDesign
-    .bind[ActorSystem].toProvider { config: Config =>
-      ActorSystem("MetricsImplSpec", config)
-    }
     .bind[Metrics].to[MetricsImplMock]
     .bind[Config].toInstance(ConfigFactory.load())
 

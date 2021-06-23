@@ -1,6 +1,5 @@
 package jp.co.tis.lerna.payment.presentation.management
 
-import akka.actor.ActorSystem
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.model.{ StatusCode, StatusCodes }
 import akka.http.scaladsl.server.Directives._
@@ -12,13 +11,11 @@ import lerna.management.stats.{ Metrics, MetricsKey }
 
 import scala.util.{ Success, Try }
 
-class MetricsRoute(config: Config, implicit val system: ActorSystem, metrics: Metrics) extends SprayJsonSupport {
-
-  import system.dispatcher
+class MetricsRoute(config: Config, metrics: Metrics) extends SprayJsonSupport {
 
   Kamon.init(config)
 
-  def route: Route = {
+  def route: Route = extractExecutionContext { implicit ec =>
     (pathPrefix("metrics" / Remaining) & extractTenantParameter).tmap(MetricsKey.tupled).apply { key =>
       complete {
         metrics.getMetrics(key).map[(StatusCode, String)] {
