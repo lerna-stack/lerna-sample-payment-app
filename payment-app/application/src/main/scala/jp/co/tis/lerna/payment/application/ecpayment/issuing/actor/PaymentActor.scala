@@ -207,8 +207,23 @@ object PaymentActor extends AppTypedActorLogging {
             entityContext,
             logger,
           )
-          val actor = new PaymentActor()
-          actor.eventSourcedBehavior()
+          val receiveTimeout: time.Duration =
+            setup.context.system.settings.config
+              .getDuration("jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.receive-timeout")
+
+          setup.context.setReceiveTimeout(receiveTimeout.asScala, ReceiveTimeout)
+
+          val persistenceId =
+            PersistenceId.of(setup.entityContext.entityTypeKey.name, setup.originalEntityId)
+
+          EventSourcedBehavior[Command, ECPaymentIssuingServiceEvent, State](
+            persistenceId = persistenceId,
+            emptyState = WaitingForRequest(),
+            commandHandler = (state, command) => state.applyCommand(command),
+            eventHandler = (state, event) => state._applyEvent(event),
+          )
+            .withJournalPluginId(setup.journalPluginId(setup.context.system.settings.config))
+            .withSnapshotPluginId(setup.snapshotPluginId)
         })
       })
     })
@@ -994,30 +1009,5 @@ object PaymentActor extends AppTypedActorLogging {
 
   private def stopSelfSafely()(implicit setup: Setup): Unit = {
     setup.entityContext.shard ! ClusterSharding.Passivate(setup.context.self)
-  }
-}
-
-class PaymentActor private ()(implicit setup: PaymentActor.Setup) {
-
-  import PaymentActor._
-
-  private val receiveTimeout: time.Duration =
-    setup.context.system.settings.config
-      .getDuration("jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.receive-timeout")
-
-  setup.context.setReceiveTimeout(receiveTimeout.asScala, ReceiveTimeout)
-
-  def eventSourcedBehavior(): EventSourcedBehavior[Command, ECPaymentIssuingServiceEvent, State] = {
-    val persistenceId =
-      PersistenceId.of(setup.entityContext.entityTypeKey.name, setup.originalEntityId)
-
-    EventSourcedBehavior[Command, ECPaymentIssuingServiceEvent, State](
-      persistenceId = persistenceId,
-      emptyState = WaitingForRequest(),
-      commandHandler = (state, command) => state.applyCommand(command),
-      eventHandler = (state, event) => state._applyEvent(event),
-    )
-      .withJournalPluginId(setup.journalPluginId(setup.context.system.settings.config))
-      .withSnapshotPluginId(setup.snapshotPluginId)
   }
 }

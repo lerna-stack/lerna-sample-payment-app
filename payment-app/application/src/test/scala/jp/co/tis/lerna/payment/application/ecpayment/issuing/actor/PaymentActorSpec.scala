@@ -56,7 +56,6 @@ class PaymentActorSpec
     .bind[ActorSystem].toInstance(system.classicSystem)
     .bind[Config].toInstance(ConfigFactory.load)
     .bind[LocalDateTimeFactory].toInstance(FixedLocalDateTimeFactory("2019-05-01T00:00:00Z"))
-    .bind[PaymentActor].toSingleton
 
   implicit val appRequestContext: AppRequestContext = AppRequestContext(TraceId("1"), tenant)
 
