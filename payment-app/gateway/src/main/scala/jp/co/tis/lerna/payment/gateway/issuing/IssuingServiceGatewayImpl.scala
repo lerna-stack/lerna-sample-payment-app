@@ -1,6 +1,8 @@
 package jp.co.tis.lerna.payment.gateway.issuing
 
-import akka.actor.{ ActorSystem, Scheduler }
+import akka.actor.Scheduler
+import akka.actor.typed.ActorSystem
+import akka.actor.typed.scaladsl.adapter.TypedSchedulerOps
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model._
@@ -34,13 +36,13 @@ import scala.util.{ Failure, Success }
   * @param config　設定ファイル
   * @param system actorシステム
   */
-class IssuingServiceGatewayImpl(config: Config)(implicit val system: ActorSystem)
+class IssuingServiceGatewayImpl(config: Config)(implicit val system: ActorSystem[Nothing])
     extends IssuingServiceGateway
     with SprayJsonSupport
     with HttpRequestLoggingSupport
     with AppLogging {
-  implicit val scheduler: Scheduler = system.scheduler
-  import system.dispatcher
+  private implicit val scheduler: Scheduler = system.scheduler.toClassic
+  import system.executionContext
 
   private val issuingServiceConfig = new IssuingServiceConfig(config)
   private val transNmFailureCancel = "障害取消送信"

@@ -1,6 +1,6 @@
 package jp.co.tis.lerna.payment.gateway.notification
 
-import akka.actor.{ ActorSystem, Scheduler }
+import akka.actor.typed.ActorSystem
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model._
@@ -31,13 +31,12 @@ object HouseMoneySettlementNotificationImpl extends SprayJsonSupport {
   )
 }
 
-final case class HouseMoneySettlementNotificationImpl(rootConfig: Config, implicit val system: ActorSystem)
+final case class HouseMoneySettlementNotificationImpl(rootConfig: Config, implicit val system: ActorSystem[Nothing])
     extends HouseMoneySettlementNotification
     with HttpRequestLoggingSupport
     with AppLogging {
   import HouseMoneySettlementNotificationImpl._
-  import system.dispatcher
-  implicit val scheduler: Scheduler = system.scheduler
+  import system.executionContext
 
   private val config                              = rootConfig.getConfig("jp.co.tis.lerna.payment.gateway.wallet-system")
   private def baseUrl(implicit tenant: AppTenant) = config.getString(s"tenants.${tenant.id}.base-url")

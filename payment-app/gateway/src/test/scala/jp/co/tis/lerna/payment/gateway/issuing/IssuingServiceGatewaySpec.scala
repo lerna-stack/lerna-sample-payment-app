@@ -1,9 +1,7 @@
 package jp.co.tis.lerna.payment.gateway.issuing
 
 import java.time.LocalDateTime
-
-import akka.actor.ActorSystem
-import akka.testkit.TestKit
+import akka.actor.typed.ActorSystem
 import com.typesafe.config.{ Config, ConfigFactory }
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model._
 import jp.co.tis.lerna.payment.adapter.issuing.IssuingServiceGateway
@@ -22,9 +20,9 @@ import jp.co.tis.lerna.payment.utility.{ AppRequestContext, UtilityDIDesign }
 import jp.co.tis.lerna.payment.utility.scalatest.StandardSpec
 import jp.co.tis.lerna.payment.utility.tenant.Example
 import lerna.testkit.airframe.DISessionSupport
+import lerna.testkit.akka.ScalaTestWithTypedActorTestKit
 import lerna.util.trace.TraceId
 import org.scalatest.Inside
-import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{ Millis, Seconds, Span }
 import wvlet.airframe.Design
 
@@ -38,11 +36,10 @@ import wvlet.airframe.Design
   ),
 )
 class IssuingServiceGatewaySpec
-    extends TestKit(ActorSystem("IssuingServiceSpec"))
+    extends ScalaTestWithTypedActorTestKit()
     with StandardSpec
     with DISessionSupport
     with IssuingServiceMockSupport
-    with ScalaFutures
     with Inside {
 
   private implicit val appRequestContext: AppRequestContext = AppRequestContext(TraceId("1"), tenant = Example)
@@ -59,7 +56,7 @@ class IssuingServiceGatewaySpec
         .withFallback(ConfigFactory.defaultReferenceUnresolved())
         .resolve()
     }
-    .bind[ActorSystem].toInstance(system)
+    .bind[ActorSystem[Nothing]].toInstance(system)
     .bind[IssuingServiceGateway].to[IssuingServiceGatewayImpl]
 
   implicit val defaultPatience: PatienceConfig =
@@ -303,10 +300,5 @@ class IssuingServiceGatewaySpec
         _ shouldBe a[BusinessException]
       }
     }
-  }
-
-  override def afterAll(): Unit = {
-    shutdown()
-    super.afterAll()
   }
 }
