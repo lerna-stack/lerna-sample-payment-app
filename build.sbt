@@ -152,12 +152,12 @@ lazy val `gateway` = (project in file("payment-app/gateway"))
     libraryDependencies ++= Seq(
       Lerna.http,
       Airframe.airframe,
-      Akka.actor,
+      Akka.actorTyped,
       Akka.stream,
       AkkaHttp.http,
       AkkaHttp.sprayJson,
-      Akka.testKit         % Test,
-      AkkaHttp.httpTestKit % Test,
+      Akka.actorTestKitTyped % Test,
+      AkkaHttp.httpTestKit   % Test,
     ),
   )
 
