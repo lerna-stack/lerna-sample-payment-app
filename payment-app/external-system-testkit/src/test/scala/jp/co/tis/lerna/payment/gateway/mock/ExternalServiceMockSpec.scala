@@ -1,6 +1,5 @@
 package jp.co.tis.lerna.payment.gateway.mock
 
-import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.marshalling.Marshal
@@ -9,13 +8,13 @@ import akka.http.scaladsl.unmarshalling.Unmarshal
 import com.typesafe.config.{ Config, ConfigFactory }
 import jp.co.tis.lerna.payment.utility.scalatest.StandardSpec
 import lerna.testkit.airframe.DISessionSupport
+import lerna.testkit.akka.ScalaTestWithTypedActorTestKit
 import org.scalatest.concurrent.PatienceConfiguration.Timeout
-import org.scalatest.concurrent.ScalaFutures._
 import org.scalatest.time.{ Seconds, Span }
 import spray.json.{ DefaultJsonProtocol, RootJsonFormat }
 import wvlet.airframe._
 
-import scala.concurrent.Future
+import scala.concurrent.{ ExecutionContextExecutor, Future }
 
 object ExternalServiceMockSpec extends SprayJsonSupport with DefaultJsonProtocol {
   final case class SampleBody(message: String)
@@ -25,7 +24,11 @@ object ExternalServiceMockSpec extends SprayJsonSupport with DefaultJsonProtocol
 
 @SuppressWarnings(Array("org.wartremover.contrib.warts.MissingOverride"))
 // ① *MockSupport を extends
-class ExternalServiceMockSpec extends StandardSpec with DISessionSupport with IssuingServiceMockSupport {
+class ExternalServiceMockSpec
+    extends ScalaTestWithTypedActorTestKit()
+    with StandardSpec
+    with DISessionSupport
+    with IssuingServiceMockSupport {
   import ExternalServiceMockSpec._
 
   override protected val diDesign: Design = newDesign
@@ -42,18 +45,14 @@ class ExternalServiceMockSpec extends StandardSpec with DISessionSupport with Is
         .withFallback(ConfigFactory.defaultReferenceUnresolved())
         .resolve()
     }
-    .bind[ActorSystem].toInstance(ActorSystem())
 
   "ExternalServiceMock" should {
-
-    implicit val system: ActorSystem = diSession.build[ActorSystem]
-
     // ④ WireMock の DSL をインポート
     import com.github.tomakehurst.wiremock.client.WireMock._
 
     val serviceBaseUrl = diSession.build[Config].getString("jp.co.tis.lerna.payment.gateway.issuing.default.base-url")
 
-    import system.dispatcher
+    implicit val ec: ExecutionContextExecutor = system.executionContext
 
     "ダミー応答を返し、受け付けたリクエストの検証を行う" in {
 
@@ -74,7 +73,6 @@ class ExternalServiceMockSpec extends StandardSpec with DISessionSupport with Is
           .withRequestBody(matchingJsonPath("message", matching("ping")))
           .withHeader("Content-Type", equalTo("application/json"))
       }
-      system.terminate()
     }
 
     def executeSampleGatewayProcess(): Future[SampleBody] = {
