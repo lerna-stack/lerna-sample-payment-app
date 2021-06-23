@@ -303,12 +303,11 @@ lazy val `external-system-testkit` = (project in file("payment-app/external-syst
   .settings(
     name := "external-system-testkit",
     libraryDependencies ++= Seq(
-      Akka.actor           % Test,
-      Akka.testKit         % Test,
-      Akka.stream          % Test,
-      AkkaHttp.http        % Test,
-      AkkaHttp.httpTestKit % Test,
-      AkkaHttp.sprayJson   % Test,
+      Akka.actorTestKitTyped % Test,
+      Akka.stream            % Test,
+      AkkaHttp.http          % Test,
+      AkkaHttp.httpTestKit   % Test,
+      AkkaHttp.sprayJson     % Test,
     ),
   )
 
