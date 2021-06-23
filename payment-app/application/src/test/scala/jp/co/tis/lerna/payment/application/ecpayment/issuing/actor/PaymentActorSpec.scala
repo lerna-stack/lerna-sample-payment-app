@@ -2,7 +2,6 @@ package jp.co.tis.lerna.payment.application.ecpayment.issuing.actor
 
 import akka.actor.ActorSystem
 import akka.actor.typed.ActorRef
-import akka.actor.typed.scaladsl.Behaviors
 import akka.cluster.sharding.typed.scaladsl.{ EntityContext, EntityTypeKey }
 import com.typesafe.config.{ Config, ConfigFactory }
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model._
@@ -889,31 +888,20 @@ class PaymentActorSpec
       gateway: IssuingServiceGateway,
       transactionIdFactory: TransactionIdFactory = transactionIdFactorySuccess,
   )(implicit jdbcService: JDBCService, tables: Tables): ActorRef[Command] =
-    spawn(
-      Behaviors.setup[Command](context => {
-        Behaviors.withTimers(timers => {
-          withLogger(logger => {
-            val entityContext = new EntityContext[Command](
-              EntityTypeKey("dummy"),
-              entityId = MultiTenantShardingSupportTestHelper.generateEntityId(),
-              shard = createTestProbe().ref,
-            )
-            implicit val setup: PaymentActor.Setup = PaymentActor.Setup(
-              gateway,
-              jdbcService,
-              tables,
-              dateTime,
-              transactionIdFactory,
-              paymentIdFactory,
-              context,
-              timers,
-              entityContext,
-              logger,
-            )
-            val actor = new PaymentActor()
-            actor.eventSourcedBehavior()
-          })
-        })
-      }),
-    )
+    spawn {
+      val entityContext = new EntityContext[Command](
+        EntityTypeKey("dummy"),
+        entityId = MultiTenantShardingSupportTestHelper.generateEntityId(),
+        shard = createTestProbe().ref,
+      )
+      PaymentActor(
+        gateway,
+        jdbcService,
+        tables,
+        dateTime,
+        transactionIdFactory,
+        paymentIdFactory,
+        entityContext,
+      )
+    }
 }

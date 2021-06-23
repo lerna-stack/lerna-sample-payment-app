@@ -1,7 +1,7 @@
 package jp.co.tis.lerna.payment.application.ecpayment.issuing.actor
 
 import akka.actor.typed.scaladsl.{ ActorContext, Behaviors, TimerScheduler }
-import akka.actor.typed.{ ActorRef, ActorSystem }
+import akka.actor.typed.{ ActorRef, ActorSystem, Behavior }
 import akka.cluster.sharding.ShardRegion.EntityId
 import akka.cluster.sharding.typed.scaladsl.{ ClusterSharding, Entity, EntityContext, EntityTypeKey }
 import akka.cluster.sharding.typed.ShardingEnvelope
@@ -166,32 +166,52 @@ object PaymentActor extends AppTypedActorLogging {
       val shardRegion: ActorRef[ShardingEnvelope[Command]] =
         clusterSharding.init(
           Entity(EntityTypeKey[Command](ActorPrefix.Ec.houseMoney))(createBehavior = entityContext => {
-            Behaviors.setup(context => {
-              Behaviors.withTimers(timers => {
-                withLogger(logger => {
-                  implicit val setup: Setup = Setup(
-                    gateway,
-                    jdbcService,
-                    tables,
-                    dateTimeFactory,
-                    transactionIdFactory,
-                    paymentIdFactory,
-                    context,
-                    timers,
-                    entityContext,
-                    logger,
-                  )
-                  val actor = new PaymentActor()
-                  actor.eventSourcedBehavior()
-                })
-              })
-            })
+            PaymentActor(
+              gateway,
+              jdbcService,
+              tables,
+              dateTimeFactory,
+              transactionIdFactory,
+              paymentIdFactory,
+              entityContext,
+            )
           })
             .withStopMessage(StopActor),
         )
 
       shardRegion
     }
+  }
+
+  private[actor] def apply(
+      gateway: IssuingServiceGateway,
+      jdbcService: JDBCService,
+      tables: Tables,
+      dateTimeFactory: LocalDateTimeFactory,
+      transactionIdFactory: TransactionIdFactory,
+      paymentIdFactory: PaymentIdFactory,
+      entityContext: EntityContext[Command],
+  ): Behavior[Command] = {
+    Behaviors.setup(context => {
+      Behaviors.withTimers(timers => {
+        withLogger(logger => {
+          implicit val setup: Setup = Setup(
+            gateway,
+            jdbcService,
+            tables,
+            dateTimeFactory,
+            transactionIdFactory,
+            paymentIdFactory,
+            context,
+            timers,
+            entityContext,
+            logger,
+          )
+          val actor = new PaymentActor()
+          actor.eventSourcedBehavior()
+        })
+      })
+    })
   }
 
   def askTimeout(implicit setup: Setup): FiniteDuration = setup.context.system.settings.config
@@ -977,7 +997,7 @@ object PaymentActor extends AppTypedActorLogging {
   }
 }
 
-class PaymentActor private[actor] ()(implicit setup: PaymentActor.Setup) {
+class PaymentActor private ()(implicit setup: PaymentActor.Setup) {
 
   import PaymentActor._
 
