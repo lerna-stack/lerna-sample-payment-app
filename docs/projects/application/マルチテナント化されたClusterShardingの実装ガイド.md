@@ -49,15 +49,14 @@ private[actor] final case class Setup(
     /* 略 */
     entityContext: EntityContext[Command],
 ) extends MultiTenantShardingSupport[Command]
+  with MultiTenantPersistentSupport
 
 class PaymentActor(
     /* 略 */
     config: Config,
     setup: Setup,    
-) extends MultiTenantPersistentSupport {
+) {
   
-    override implicit def tenant: AppTenant = setup.tenant
-
     def eventSourcedBehavior(): EventSourcedBehavior[Command, Event, State] = {
         val persistenceId = PersistenceId.of(setup.entityContext.entityTypeKey.name, setup.originalEntityId)
         EventSourcedBehavior[Command, ECPaymentIssuingServiceEvent, State](
@@ -66,8 +65,8 @@ class PaymentActor(
             commandHandler = (state, command) => state.applyCommand(command),
             eventHandler = (state, event) => state.applyEvent(event),
         )
-          .withJournalPluginId(journalPluginId(config))
-          .withSnapshotPluginId(snapshotPluginId)
+          .withJournalPluginId(setup.journalPluginId(config))
+          .withSnapshotPluginId(setup.snapshotPluginId)
     }
 }
 ```

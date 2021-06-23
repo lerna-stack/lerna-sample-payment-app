@@ -144,6 +144,7 @@ object PaymentActor extends AppTypedActorLogging {
       entityContext: EntityContext[Command],
       logger: AppLogger,
   ) extends MultiTenantShardingSupport[Command]
+      with MultiTenantPersistentSupport
 
   def entityId(clientId: ClientId, walletShopId: WalletShopId, orderId: OrderId): EntityId =
     s"${clientId.value}-${walletShopId.value}-${orderId.value}"
@@ -976,11 +977,9 @@ object PaymentActor extends AppTypedActorLogging {
   }
 }
 
-class PaymentActor private[actor] ()(implicit setup: PaymentActor.Setup) extends MultiTenantPersistentSupport {
+class PaymentActor private[actor] ()(implicit setup: PaymentActor.Setup) {
 
   import PaymentActor._
-
-  override def tenant: AppTenant = setup.tenant
 
   private val receiveTimeout: time.Duration =
     setup.context.system.settings.config
@@ -998,7 +997,7 @@ class PaymentActor private[actor] ()(implicit setup: PaymentActor.Setup) extends
       commandHandler = (state, command) => state.applyCommand(command),
       eventHandler = (state, event) => state._applyEvent(event),
     )
-      .withJournalPluginId(journalPluginId(setup.context.system.settings.config))
-      .withSnapshotPluginId(snapshotPluginId)
+      .withJournalPluginId(setup.journalPluginId(setup.context.system.settings.config))
+      .withSnapshotPluginId(setup.snapshotPluginId)
   }
 }
