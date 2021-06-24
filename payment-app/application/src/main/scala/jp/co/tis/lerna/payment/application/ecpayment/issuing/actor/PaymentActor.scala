@@ -195,9 +195,9 @@ object PaymentActor extends AppTypedActorLogging {
       paymentIdFactory: PaymentIdFactory,
       entityContext: EntityContext[Command],
   ): Behavior[Command] = {
-    Behaviors.setup(context => {
-      Behaviors.withTimers(timers => {
-        withLogger(logger => {
+    Behaviors.setup { context =>
+      Behaviors.withTimers { timers =>
+        withLogger { logger =>
           implicit val setup: Setup = Setup(
             gateway,
             jdbcService,
@@ -228,9 +228,9 @@ object PaymentActor extends AppTypedActorLogging {
             )
             .withJournalPluginId(setup.journalPluginId(setup.context.system.settings.config))
             .withSnapshotPluginId(setup.snapshotPluginId)
-        })
-      })
-    })
+        }
+      }
+    }
   }
 
   private val errCodeOk = "00000"
