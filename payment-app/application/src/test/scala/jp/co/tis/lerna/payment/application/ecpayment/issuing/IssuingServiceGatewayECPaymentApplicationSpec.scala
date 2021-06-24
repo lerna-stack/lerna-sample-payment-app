@@ -1,11 +1,12 @@
 package jp.co.tis.lerna.payment.application.ecpayment.issuing
 
-import akka.actor.ActorSystem
+import akka.actor.typed.scaladsl.adapter._
+import akka.actor.{ typed, ActorSystem }
 import akka.cluster.Cluster
 import com.typesafe.config.{ Config, ConfigFactory }
-import jp.co.tis.lerna.payment.adapter.ecpayment.model.{ OrderId, WalletShopId }
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.IssuingServiceECPaymentApplication
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model._
+import jp.co.tis.lerna.payment.adapter.ecpayment.model.{ OrderId, WalletShopId }
 import jp.co.tis.lerna.payment.adapter.issuing.IssuingServiceGateway
 import jp.co.tis.lerna.payment.adapter.issuing.model.{
   AcquirerReversalRequestParameter,
@@ -15,9 +16,9 @@ import jp.co.tis.lerna.payment.adapter.issuing.model.{
 import jp.co.tis.lerna.payment.adapter.util.exception.BusinessException
 import jp.co.tis.lerna.payment.adapter.wallet.{ ClientId, CustomerId }
 import jp.co.tis.lerna.payment.readmodel.{ JDBCSupport, ReadModelDIDesign }
-import jp.co.tis.lerna.payment.utility.{ AppRequestContext, UtilityDIDesign }
 import jp.co.tis.lerna.payment.utility.scalatest.StandardSpec
 import jp.co.tis.lerna.payment.utility.tenant.Example
+import jp.co.tis.lerna.payment.utility.{ AppRequestContext, UtilityDIDesign }
 import lerna.testkit.airframe.DISessionSupport
 import lerna.util.tenant.Tenant
 import lerna.util.trace.TraceId
@@ -77,6 +78,7 @@ class IssuingServiceGatewayECPaymentApplicationSpec
     .bind[ActorSystem].toProvider { config: Config =>
       ActorSystem("IssuingServiceECPaymentApplicationSpec", config)
     }
+    .bind[typed.ActorSystem[Nothing]].toSingletonProvider[ActorSystem](_.toTyped)
     .bind[IssuingServiceGateway].toInstance(issuingService)
     .bind[TransactionIdFactory].toInstance(transactionIdFactory)
     .bind[PaymentIdFactory].toInstance(paymentIdFactory)
@@ -102,8 +104,8 @@ class IssuingServiceGatewayECPaymentApplicationSpec
     .bind[IssuingServiceECPaymentApplication].to[IssuingServiceECPaymentApplicationImpl]
 
   "IssuingServiceECPaymentApplicationSpec" should {
-    implicit val system: ActorSystem = diSession.build[ActorSystem]
-    val cluster                      = Cluster(system)
+    val system  = diSession.build[typed.ActorSystem[Nothing]]
+    val cluster = Cluster(system)
     cluster.join(cluster.selfAddress)
 
     val application = diSession.build[IssuingServiceECPaymentApplication]

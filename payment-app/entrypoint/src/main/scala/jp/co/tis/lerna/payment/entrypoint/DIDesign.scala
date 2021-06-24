@@ -1,6 +1,7 @@
 package jp.co.tis.lerna.payment.entrypoint
 
-import akka.actor.ActorSystem
+import akka.actor.typed.scaladsl.adapter._
+import akka.actor.{ typed, ActorSystem }
 import com.typesafe.config.Config
 import jp.co.tis.lerna.payment.application.ApplicationDIDesign
 import jp.co.tis.lerna.payment.gateway.GatewayDIDesign
@@ -21,6 +22,7 @@ trait DIDesign {
   def design(system: ActorSystem): Design =
     newDesign
       .bind[ActorSystem].toInstance(system)
+      .bind[typed.ActorSystem[Nothing]].toSingletonProvider[ActorSystem](_.toTyped)
       .bind[PaymentApp].toSingleton
       .add(configDesign)
       .add(PresentationDIDesign.presentationDesign)

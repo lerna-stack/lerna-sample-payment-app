@@ -1,26 +1,22 @@
 package jp.co.tis.lerna.payment.application.readmodelupdater.salesdetail.eventhandler
 
-import java.sql.Timestamp
-import java.time.temporal.ChronoUnit
-import java.time.{ LocalDateTime, Month }
-import java.util.concurrent.atomic.AtomicInteger
-
-import akka.actor.ActorSystem
+import akka.actor.typed.scaladsl.adapter._
+import akka.actor.{ ActorRef, ActorSystem }
 import akka.testkit.TestKit
 import com.typesafe.config.{ Config, ConfigFactory }
-import jp.co.tis.lerna.payment.adapter.ecpayment.model.{ OrderId, WalletShopId }
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model._
-import jp.co.tis.lerna.payment.adapter.notification.util.model.{
-  HouseMoneySettlementNotificationRequest,
-  NotificationResponse,
-  NotificationSuccess,
-}
+import jp.co.tis.lerna.payment.adapter.ecpayment.model.{ OrderId, WalletShopId }
 import jp.co.tis.lerna.payment.adapter.issuing.model.{
   AcquirerReversalRequestParameter,
   AuthorizationRequestParameter,
   IssuingServiceResponse,
 }
 import jp.co.tis.lerna.payment.adapter.notification.HouseMoneySettlementNotification
+import jp.co.tis.lerna.payment.adapter.notification.util.model.{
+  HouseMoneySettlementNotificationRequest,
+  NotificationResponse,
+  NotificationSuccess,
+}
 import jp.co.tis.lerna.payment.adapter.util.{
   IssuingServiceBadRequestError,
   IssuingServiceServerError,
@@ -29,14 +25,15 @@ import jp.co.tis.lerna.payment.adapter.util.{
 import jp.co.tis.lerna.payment.adapter.wallet.{ ClientId, CustomerId, WalletId }
 import jp.co.tis.lerna.payment.application.ApplicationDIDesign
 import jp.co.tis.lerna.payment.application.ecpayment.issuing.IssuingServicePayCredential
+import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.PaymentActor._
 import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor._
 import jp.co.tis.lerna.payment.application.readmodelupdater.salesdetail.EventPersistenceInfo
 import jp.co.tis.lerna.payment.readmodel.constant.{ LogicalDeleteFlag, SaleCancelType }
 import jp.co.tis.lerna.payment.readmodel.schema.Tables
 import jp.co.tis.lerna.payment.readmodel.{ JDBCSupport, ReadModelDIDesign }
-import jp.co.tis.lerna.payment.utility.{ AppRequestContext, UtilityDIDesign }
 import jp.co.tis.lerna.payment.utility.scalatest.StandardSpec
 import jp.co.tis.lerna.payment.utility.tenant.{ AppTenant, Example }
+import jp.co.tis.lerna.payment.utility.{ AppRequestContext, UtilityDIDesign }
 import lerna.testkit.airframe.DISessionSupport
 import lerna.util.time.{ FixedLocalDateTimeFactory, LocalDateTimeFactory }
 import lerna.util.trace.TraceId
@@ -44,6 +41,10 @@ import org.scalatest.Inside
 import org.scalatest.concurrent.ScalaFutures
 import wvlet.airframe.Design
 
+import java.sql.Timestamp
+import java.time.temporal.ChronoUnit
+import java.time.{ LocalDateTime, Month }
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.Future
 
 // Lint回避のため
@@ -113,6 +114,9 @@ class ECPaymentIssuingServiceEventHandlerSpec
   // 正の整数ならいくつでも良いが、 0 は初期値でデフォルト値と区別がつかないと思われる可能性があるのでその他の適当な値を使用
   val eventSequenceNumber: Long = 42
 
+  private val replyTo   = ActorRef.noSender.toTyped
+  private val confirmTo = ActorRef.noSender.toTyped
+
   implicit val eventPersistenceInfo: EventPersistenceInfo =
     EventPersistenceInfo(eventPersistenceId, eventSequenceNumber)
 
@@ -166,6 +170,8 @@ class ECPaymentIssuingServiceEventHandlerSpec
             walletShopId = WalletShopId(""),
             orderId = OrderId("33"),
             amountTran = AmountTran(44),
+            replyTo,
+            confirmTo,
           ),
           SettlementSuccessResponse(),
           issuingServicePaymentRequest1,
@@ -260,6 +266,8 @@ class ECPaymentIssuingServiceEventHandlerSpec
             walletShopId = WalletShopId(""),
             orderId = OrderId("33"),
             amountTran = AmountTran(44),
+            replyTo,
+            confirmTo,
           ),
           issuingServicePaymentRequest1,
           failureMessage = IssuingServiceBadRequestError(""),
@@ -342,6 +350,8 @@ class ECPaymentIssuingServiceEventHandlerSpec
             walletShopId = WalletShopId(""),
             orderId = OrderId("33"),
             amountTran = AmountTran(44),
+            replyTo,
+            confirmTo,
           ),
           issuingServicePaymentRequest1,
           failureMessage = UnpredictableError(),
@@ -453,7 +463,8 @@ class ECPaymentIssuingServiceEventHandlerSpec
           HousePan(""),
           TerminalId("12345678"),
         )
-      val issuingServiceCancel      = Cancel(ClientId(333), CustomerId(customerId), WalletShopId(""), OrderId(""))
+      val issuingServiceCancel =
+        Cancel(ClientId(333), CustomerId(customerId), WalletShopId(""), OrderId(""), replyTo, confirmTo)
       val settlementSuccessResponse = SettlementSuccessResponse()
       val systemDate                = date.now()
       val saleDateTime              = LocalDateTime.of(2019, Month.JANUARY, 1, 11, 11, 11)
@@ -584,9 +595,10 @@ class ECPaymentIssuingServiceEventHandlerSpec
           HousePan("159"),
           TerminalId(""),
         )
-      val issuingServiceCancel = Cancel(ClientId(333), CustomerId(customerId), WalletShopId(""), OrderId(""))
-      val systemDate           = date.now()
-      val saleDateTime         = LocalDateTime.of(2019, Month.JANUARY, 1, 11, 11, 11)
+      val issuingServiceCancel =
+        Cancel(ClientId(333), CustomerId(customerId), WalletShopId(""), OrderId(""), replyTo, confirmTo)
+      val systemDate   = date.now()
+      val saleDateTime = LocalDateTime.of(2019, Month.JANUARY, 1, 11, 11, 11)
 
       val event =
         CancelFailureConfirmed(
@@ -666,8 +678,9 @@ class ECPaymentIssuingServiceEventHandlerSpec
         "123",
         "errorCode001",
       )
-      val issuingServiceCancel = Cancel(ClientId(333), CustomerId(customerId), WalletShopId(""), OrderId(""))
-      val systemDate           = date.now()
+      val issuingServiceCancel =
+        Cancel(ClientId(333), CustomerId(customerId), WalletShopId(""), OrderId(""), replyTo, confirmTo)
+      val systemDate = date.now()
       val issuingServicePayCredential =
         IssuingServicePayCredential(None, None, "", None, None, "0", HousePan(""), TerminalId(""))
       val saleDateTime = LocalDateTime.of(2019, Month.JANUARY, 1, 11, 11, 11)
@@ -780,7 +793,8 @@ class ECPaymentIssuingServiceEventHandlerSpec
           HousePan(""),
           TerminalId(""),
         )
-      val issuingServiceCancel      = Cancel(ClientId(333), CustomerId(customerId), WalletShopId(""), OrderId(""))
+      val issuingServiceCancel =
+        Cancel(ClientId(333), CustomerId(customerId), WalletShopId(""), OrderId(""), replyTo, confirmTo)
       val settlementSuccessResponse = SettlementSuccessResponse()
       val systemDate                = date.now()
       val saleDateTime              = LocalDateTime.of(2019, Month.JANUARY, 1, 11, 11, 11)
@@ -891,7 +905,8 @@ class ECPaymentIssuingServiceEventHandlerSpec
           HousePan(""),
           TerminalId(""),
         )
-      val issuingServiceCancel      = Cancel(ClientId(333), CustomerId(customerId), WalletShopId(""), OrderId(""))
+      val issuingServiceCancel =
+        Cancel(ClientId(333), CustomerId(customerId), WalletShopId(""), OrderId(""), replyTo, confirmTo)
       val settlementSuccessResponse = SettlementSuccessResponse()
       val systemDate                = date.now()
       val saleDateTime              = date.now()
@@ -1022,7 +1037,8 @@ class ECPaymentIssuingServiceEventHandlerSpec
           HousePan(""),
           TerminalId(""),
         )
-      val issuingServiceCancel      = Cancel(ClientId(333), CustomerId(customerId), WalletShopId(""), OrderId(""))
+      val issuingServiceCancel =
+        Cancel(ClientId(333), CustomerId(customerId), WalletShopId(""), OrderId(""), replyTo, confirmTo)
       val settlementSuccessResponse = SettlementSuccessResponse()
       val systemDate                = date.now()
       val saleDateTime              = date.now()

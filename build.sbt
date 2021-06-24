@@ -190,6 +190,7 @@ lazy val `application` = (project in file("payment-app/application"))
       Akka.actor,
       Akka.stream,
       Akka.persistence,
+      Akka.persistenceTyped,
       Akka.cluster,
       Akka.clusterTyped,
       Akka.clusterTools,
@@ -202,9 +203,10 @@ lazy val `application` = (project in file("payment-app/application"))
       AkkaProjection.slick,
       Kryo.kryo,
       SprayJson.sprayJson,
-      Akka.testKit          % Test,
-      Akka.multiNodeTestKit % Test,
-      Akka.streamTestKit    % Test,
+      Akka.testKit           % Test,
+      Akka.actorTestKitTyped % Test,
+      Akka.multiNodeTestKit  % Test,
+      Akka.streamTestKit     % Test,
     ),
   )
 

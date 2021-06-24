@@ -1,20 +1,16 @@
 package jp.co.tis.lerna.payment.application.ecpayment.issuing
 
-import akka.actor.ActorSystem
+import akka.actor.typed.ActorSystem
+import akka.cluster.sharding.typed.ShardingEnvelope
 import akka.util.Timeout
 import com.typesafe.config.Config
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.IssuingServiceECPaymentApplication
-import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model.{
-  PaymentCancelParameter,
-  PaymentParameter,
-  SettlementFailureResponse,
-  SettlementResponse,
-  SettlementSuccessResponse,
-}
+import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model._
 import jp.co.tis.lerna.payment.adapter.issuing.IssuingServiceGateway
 import jp.co.tis.lerna.payment.adapter.util.exception.BusinessException
-import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.PaymentActor.Sharding
-import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.{ Cancel, Settle }
+import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.PaymentActor
+import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.PaymentActor.{ Cancel, Command, Settle, Sharding }
+import jp.co.tis.lerna.payment.application.util.tenant.actor.MultiTenantShardingSupport
 import jp.co.tis.lerna.payment.readmodel.JDBCService
 import jp.co.tis.lerna.payment.readmodel.schema.Tables
 import jp.co.tis.lerna.payment.utility.AppRequestContext
@@ -42,10 +38,10 @@ class IssuingServiceECPaymentApplicationImpl(
     dateTimeFactory: LocalDateTimeFactory,
     transactionIdFactory: TransactionIdFactory,
     paymentIdFactory: PaymentIdFactory,
-)(implicit val system: ActorSystem)
+)(implicit val system: ActorSystem[Nothing])
     extends IssuingServiceECPaymentApplication {
 
-  import system.dispatcher
+  import system.executionContext
 
   implicit val timeout: Timeout =
     Timeout.durationToTimeout(
@@ -55,38 +51,64 @@ class IssuingServiceECPaymentApplicationImpl(
   override def pay(
       paymentParameter: PaymentParameter,
   )(implicit appRequestContext: AppRequestContext): Future[SettlementSuccessResponse] = {
-
-    val command = Settle(
-      paymentParameter.clientId,
-      paymentParameter.customerId,
-      paymentParameter.walletShopId,
-      paymentParameter.orderId,
-      paymentParameter.amountTran,
-    )
-    AtLeastOnceDelivery.askTo(destination = shardRegion, command).mapTo[SettlementResponse].flatMap {
-      case successResponse: SettlementSuccessResponse => Future.successful(successResponse)
-      case SettlementFailureResponse(message)         => Future.failed(new BusinessException(message))
-    }
+    AtLeastOnceDelivery
+      .askTo[ShardingEnvelope[Command], SettlementResponse](
+        destination = shardRegion,
+        (replyTo, confirmTo) => {
+          val command = Settle(
+            paymentParameter.clientId,
+            paymentParameter.customerId,
+            paymentParameter.walletShopId,
+            paymentParameter.orderId,
+            paymentParameter.amountTran,
+            replyTo,
+            confirmTo,
+          )
+          val entityId = PaymentActor.entityId(
+            paymentParameter.clientId,
+            paymentParameter.walletShopId,
+            paymentParameter.orderId,
+          )
+          val tenantSupportEntityId = MultiTenantShardingSupport.tenantSupportEntityId(entityId)
+          ShardingEnvelope[Command](tenantSupportEntityId, command)
+        },
+      ).flatMap {
+        case successResponse: SettlementSuccessResponse => Future.successful(successResponse)
+        case SettlementFailureResponse(message)         => Future.failed(new BusinessException(message))
+      }
   }
 
   override def cancel(
       paymentCancelParameter: PaymentCancelParameter,
   )(implicit appRequestContext: AppRequestContext): Future[SettlementSuccessResponse] = {
-    val command = Cancel(
-      paymentCancelParameter.clientId,
-      paymentCancelParameter.customerId,
-      paymentCancelParameter.walletShopId,
-      paymentCancelParameter.orderId,
-    )
-    AtLeastOnceDelivery.askTo(destination = shardRegion, command).mapTo[SettlementResponse].flatMap {
-      case successResponse: SettlementSuccessResponse => Future.successful(successResponse)
-      case SettlementFailureResponse(message)         => Future.failed(new BusinessException(message))
-    }
+    AtLeastOnceDelivery
+      .askTo[ShardingEnvelope[Command], SettlementResponse](
+        destination = shardRegion,
+        (replyTo, confirmTo) => {
+          val command = Cancel(
+            paymentCancelParameter.clientId,
+            paymentCancelParameter.customerId,
+            paymentCancelParameter.walletShopId,
+            paymentCancelParameter.orderId,
+            replyTo,
+            confirmTo,
+          )
+          val entityId = PaymentActor.entityId(
+            paymentCancelParameter.clientId,
+            paymentCancelParameter.walletShopId,
+            paymentCancelParameter.orderId,
+          )
+          val tenantSupportEntityId = MultiTenantShardingSupport.tenantSupportEntityId(entityId)
+          ShardingEnvelope[Command](tenantSupportEntityId, command)
+        },
+      ).flatMap {
+        case successResponse: SettlementSuccessResponse => Future.successful(successResponse)
+        case SettlementFailureResponse(message)         => Future.failed(new BusinessException(message))
+      }
   }
 
   private val shardRegion =
     Sharding.startClusterSharding(
-      config,
       gateway,
       database,
       tables,
