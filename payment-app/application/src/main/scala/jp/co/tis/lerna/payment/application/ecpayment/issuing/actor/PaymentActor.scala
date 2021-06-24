@@ -144,7 +144,10 @@ object PaymentActor extends AppTypedActorLogging {
       entityContext: EntityContext[Command],
       logger: AppLogger,
   ) extends MultiTenantShardingSupport[Command]
-      with MultiTenantPersistentSupport
+      with MultiTenantPersistentSupport {
+    def askTimeout: FiniteDuration = context.system.settings.config
+      .getDuration("jp.co.tis.lerna.payment.application.ecpayment.issuing.payment-timeout").asScala
+  }
 
   def entityId(clientId: ClientId, walletShopId: WalletShopId, orderId: OrderId): EntityId =
     s"${clientId.value}-${walletShopId.value}-${orderId.value}"
@@ -229,9 +232,6 @@ object PaymentActor extends AppTypedActorLogging {
     })
   }
 
-  def askTimeout(implicit setup: Setup): FiniteDuration = setup.context.system.settings.config
-    .getDuration("jp.co.tis.lerna.payment.application.ecpayment.issuing.payment-timeout").asScala
-
   private val errCodeOk = "00000"
 
   // type alias to reduce boilerplate
@@ -260,7 +260,7 @@ object PaymentActor extends AppTypedActorLogging {
           import event.traceId
 
           val processingTimeoutMessage: ProcessingTimeout =
-            ProcessingTimeout(event.systemTime, askTimeout, setup.context.system.settings.config)
+            ProcessingTimeout(event.systemTime, setup.askTimeout, setup.context.system.settings.config)
 
           setup.timers.startSingleTimer(
             msg = processingTimeoutMessage,
@@ -540,7 +540,7 @@ object PaymentActor extends AppTypedActorLogging {
         import event.traceId
 
         val processingTimeoutMessage: ProcessingTimeout =
-          ProcessingTimeout(event.systemDateTime, askTimeout, setup.context.system.settings.config)
+          ProcessingTimeout(event.systemDateTime, setup.askTimeout, setup.context.system.settings.config)
 
         setup.timers.startSingleTimer(
           msg = processingTimeoutMessage,
