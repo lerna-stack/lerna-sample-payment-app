@@ -219,12 +219,13 @@ object PaymentActor extends AppTypedActorLogging {
           val persistenceId =
             PersistenceId.of(setup.entityContext.entityTypeKey.name, setup.originalEntityId)
 
-          EventSourcedBehavior[Command, ECPaymentIssuingServiceEvent, State](
-            persistenceId = persistenceId,
-            emptyState = WaitingForRequest(),
-            commandHandler = (state, command) => state.applyCommand(command),
-            eventHandler = (state, event) => state._applyEvent(event),
-          )
+          EventSourcedBehavior
+            .withEnforcedReplies[Command, ECPaymentIssuingServiceEvent, State](
+              persistenceId = persistenceId,
+              emptyState = WaitingForRequest(),
+              commandHandler = (state, command) => state.applyCommand(command),
+              eventHandler = (state, event) => state._applyEvent(event),
+            )
             .withJournalPluginId(setup.journalPluginId(setup.context.system.settings.config))
             .withSnapshotPluginId(setup.snapshotPluginId)
         })
