@@ -247,6 +247,9 @@ object PaymentActor extends AppTypedActorLogging {
   private[actor] sealed trait StateBase[Event <: ECPaymentIssuingServiceEvent] extends State {
     @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
     override final def _applyEvent(event: ECPaymentIssuingServiceEvent)(implicit setup: Setup): State =
+      // 各 state での match case を必要最小限にし compile 時にプログラム不備を検知できるようにするため
+      // WARNING!! : asInstanceOf は他の場所で気軽に使用しないこと
+      // この State においては EventSourcedBehavior(Akka Persistence) の仕組み上(永続化された Event と不整合な改変をしない限り)問題ない
       applyEvent(event.asInstanceOf[Event])
 
     def applyEvent(event: Event)(implicit setup: Setup): State
