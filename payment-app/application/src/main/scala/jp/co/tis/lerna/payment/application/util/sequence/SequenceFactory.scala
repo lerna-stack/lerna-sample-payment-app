@@ -1,6 +1,6 @@
 package jp.co.tis.lerna.payment.application.util.sequence
 
-import akka.actor.ActorSystem
+import akka.actor.typed.ActorSystem
 import com.typesafe.config.Config
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model.{ PaymentId, TransactionId }
 import jp.co.tis.lerna.payment.utility.tenant.AppTenant
@@ -21,7 +21,7 @@ trait TransactionIdSequenceFactory extends SequenceFactory {
 
 /** 取引ID
   */
-class TransactionIdSequenceFactoryImpl(val config: Config, val system: ActorSystem)
+class TransactionIdSequenceFactoryImpl(val config: Config, val system: ActorSystem[Nothing])
     extends CassandraSequenceFactory
     with TransactionIdSequenceFactory {
 
@@ -33,7 +33,7 @@ class TransactionIdSequenceFactoryImpl(val config: Config, val system: ActorSyst
 
 /** (会員ごと)決済番号
   */
-class PaymentIdSequenceFactoryImpl(val config: Config, val system: ActorSystem)
+class PaymentIdSequenceFactoryImpl(val config: Config, val system: ActorSystem[Nothing])
     extends CassandraSequenceFactory
     with PaymentIdSequenceFactory {
 

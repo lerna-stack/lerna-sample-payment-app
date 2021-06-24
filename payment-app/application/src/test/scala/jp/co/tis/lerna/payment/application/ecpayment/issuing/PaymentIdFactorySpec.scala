@@ -1,7 +1,6 @@
 package jp.co.tis.lerna.payment.application.ecpayment.issuing
 
-import akka.actor.ActorSystem
-import akka.testkit.TestKit
+import akka.actor.typed.ActorSystem
 import com.typesafe.config.{ Config, ConfigFactory }
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model.PaymentId
 import jp.co.tis.lerna.payment.adapter.wallet.CustomerId
@@ -10,9 +9,8 @@ import jp.co.tis.lerna.payment.utility.UtilityDIDesign
 import jp.co.tis.lerna.payment.utility.scalatest.StandardSpec
 import jp.co.tis.lerna.payment.utility.tenant.Example
 import lerna.testkit.airframe.DISessionSupport
+import lerna.testkit.akka.ScalaTestWithTypedActorTestKit
 import lerna.util.tenant.Tenant
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.concurrent.ScalaFutures
 import wvlet.airframe.Design
 
 import scala.concurrent.Future
@@ -27,10 +25,8 @@ import scala.concurrent.Future
   ),
 )
 class PaymentIdFactorySpec
-    extends TestKit(ActorSystem("PaymentIdFactorySpec"))
+    extends ScalaTestWithTypedActorTestKit(ConfigFactory.load("application.conf"))
     with StandardSpec
-    with BeforeAndAfterAll
-    with ScalaFutures
     with DISessionSupport {
 
   final case object PaymentIdSequenceFactoryImpl extends PaymentIdSequenceFactory {
@@ -45,7 +41,7 @@ class PaymentIdFactorySpec
   override protected val diDesign: Design = UtilityDIDesign.utilityDesign
     .bind[PaymentIdFactory].to[PaymentIdFactoryImpl]
     .bind[PaymentIdSequenceFactory].toInstance(PaymentIdSequenceFactoryImpl)
-    .bind[ActorSystem].toInstance(system)
+    .bind[ActorSystem[Nothing]].toInstance(system)
     .bind[Config].toInstance(ConfigFactory.load())
 
   private implicit val tenant: Tenant = Example
@@ -57,10 +53,5 @@ class PaymentIdFactorySpec
         expect { r === PaymentId(6666) }
       }
     }
-  }
-
-  override def afterAll(): Unit = {
-    shutdown()
-    super.afterAll()
   }
 }

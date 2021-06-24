@@ -1,8 +1,8 @@
 package jp.co.tis.lerna.payment.application.readmodelupdater.salesdetail.eventhandler
 
 import akka.actor.typed.scaladsl.adapter._
-import akka.actor.{ ActorRef, ActorSystem }
-import akka.testkit.TestKit
+import akka.actor.ActorRef
+import akka.actor.typed.ActorSystem
 import com.typesafe.config.{ Config, ConfigFactory }
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model._
 import jp.co.tis.lerna.payment.adapter.ecpayment.model.{ OrderId, WalletShopId }
@@ -35,17 +35,17 @@ import jp.co.tis.lerna.payment.utility.scalatest.StandardSpec
 import jp.co.tis.lerna.payment.utility.tenant.{ AppTenant, Example }
 import jp.co.tis.lerna.payment.utility.{ AppRequestContext, UtilityDIDesign }
 import lerna.testkit.airframe.DISessionSupport
+import lerna.testkit.akka.ScalaTestWithTypedActorTestKit
 import lerna.util.time.{ FixedLocalDateTimeFactory, LocalDateTimeFactory }
 import lerna.util.trace.TraceId
 import org.scalatest.Inside
-import org.scalatest.concurrent.ScalaFutures
 import wvlet.airframe.Design
 
 import java.sql.Timestamp
 import java.time.temporal.ChronoUnit
 import java.time.{ LocalDateTime, Month }
 import java.util.concurrent.atomic.AtomicInteger
-import scala.concurrent.Future
+import scala.concurrent.{ ExecutionContextExecutor, Future }
 
 // Lint回避のため
 @SuppressWarnings(
@@ -57,14 +57,13 @@ import scala.concurrent.Future
   ),
 )
 class ECPaymentIssuingServiceEventHandlerSpec
-    extends TestKit(ActorSystem("ECPaymentIssuingServiceEventHandlerSpec"))
+    extends ScalaTestWithTypedActorTestKit(ConfigFactory.load("application.conf"))
     with StandardSpec
     with DISessionSupport
     with JDBCSupport
-    with ScalaFutures
     with Inside {
 
-  import system.dispatcher
+  private implicit val ec: ExecutionContextExecutor = system.executionContext
   override def afterDatabasePrepared(): Unit = {
     super.afterDatabasePrepared()
     createWalletSettlementIdSeq()
@@ -73,7 +72,7 @@ class ECPaymentIssuingServiceEventHandlerSpec
   override protected val diDesign: Design = UtilityDIDesign.utilityDesign
     .add(ReadModelDIDesign.readModelDesign)
     .add(ApplicationDIDesign.applicationDesign)
-    .bind[ActorSystem].toInstance(system)
+    .bind[ActorSystem[Nothing]].toInstance(system)
     .bind[Config].toInstance(ConfigFactory.load())
     .bind[LocalDateTimeFactory].toInstance(FixedLocalDateTimeFactory("2019-05-01T11:22:33Z"))
     .bind[AppTenant].toInstance(tenant)
@@ -1085,10 +1084,5 @@ class ECPaymentIssuingServiceEventHandlerSpec
     whenReady(jdbcService.db.run(action)) { _ =>
       // do nothing
     }
-  }
-
-  override def afterAll(): Unit = {
-    shutdown()
-    super.afterAll()
   }
 }

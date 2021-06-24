@@ -5,7 +5,7 @@ import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 
 import akka.Done
-import akka.actor.ActorSystem
+import akka.actor.typed.ActorSystem
 import akka.projection.eventsourced.EventEnvelope
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model._
 import jp.co.tis.lerna.payment.adapter.notification.HouseMoneySettlementNotification
@@ -46,7 +46,7 @@ class ECPaymentIssuingServiceEventHandler(
     settlementNotification: HouseMoneySettlementNotification,
 )(implicit
     val tenant: AppTenant,
-    system: ActorSystem,
+    system: ActorSystem[Nothing],
 ) extends SalesDetailEventHandler[ECPaymentIssuingServiceSalesDetailDomainEvent]
     with AppLogging {
 
@@ -73,7 +73,7 @@ class ECPaymentIssuingServiceEventHandler(
   override def process(envelope: EventEnvelope[ECPaymentIssuingServiceSalesDetailDomainEvent]): dbio.DBIO[Done] = {
     val event = envelope.event
 
-    import system.dispatcher
+    import system.executionContext
     implicit val traceId: TraceId = event.traceId
     implicit val eventPersistenceInfo: EventPersistenceInfo =
       EventPersistenceInfo(envelope.persistenceId, envelope.sequenceNr)

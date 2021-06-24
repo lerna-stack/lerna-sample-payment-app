@@ -1,6 +1,6 @@
 package jp.co.tis.lerna.payment.application
 
-import akka.actor.ActorSystem
+import akka.actor.typed.ActorSystem
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.IssuingServiceECPaymentApplication
 import jp.co.tis.lerna.payment.adapter.util.authorization.ClientAuthorizationApplication
 import jp.co.tis.lerna.payment.adapter.util.health.HealthCheckApplication
@@ -32,7 +32,7 @@ trait ApplicationDIDesign {
   @SuppressWarnings(Array("lerna.warts.CyclomaticComplexity"))
   val applicationDesign: Design = newDesign
     .bind[ClientAuthorizationApplication].to[ClientAuthorizationApplicationImpl]
-    .bind[Metrics].toSingletonProvider[ActorSystem] { system =>
+    .bind[Metrics].toSingletonProvider[ActorSystem[Nothing]] { system =>
       Metrics(system, AppTenant.values.toSet)
     }
     .bind[TransactionIdSequenceFactory].to[TransactionIdSequenceFactoryImpl]

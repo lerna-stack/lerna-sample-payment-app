@@ -1,7 +1,6 @@
 package jp.co.tis.lerna.payment.application.ecpayment.issuing
 
-import akka.actor.typed.scaladsl.adapter._
-import akka.actor.{ typed, ActorSystem }
+import akka.actor.typed.ActorSystem
 import akka.cluster.Cluster
 import com.typesafe.config.{ Config, ConfigFactory }
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.IssuingServiceECPaymentApplication
@@ -20,9 +19,9 @@ import jp.co.tis.lerna.payment.utility.scalatest.StandardSpec
 import jp.co.tis.lerna.payment.utility.tenant.Example
 import jp.co.tis.lerna.payment.utility.{ AppRequestContext, UtilityDIDesign }
 import lerna.testkit.airframe.DISessionSupport
+import lerna.testkit.akka.ScalaTestWithTypedActorTestKit
 import lerna.util.tenant.Tenant
 import lerna.util.trace.TraceId
-import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{ Seconds, Span }
 import org.scalatest.Inside
 import wvlet.airframe.Design
@@ -49,6 +48,24 @@ object IssuingServiceGatewayECPaymentApplicationSpec {
     override def generateIdFor(customerId: CustomerId)(implicit tenant: Tenant): Future[PaymentId] =
       Future.successful(PaymentId(12345))
   }
+
+  private val config = ConfigFactory
+    .parseString(s"""
+                    | akka {
+                    |  actor {
+                    |    provider = "cluster"
+                    |  }
+                    |  cluster.sharding.passivate-idle-entity-after = off
+                    |
+                    |  remote {
+                    |    artery {
+                    |      canonical {
+                    |        port = 0
+                    |      }
+                    |    }
+                    |  }
+                    |}
+       """.stripMargin).withFallback(ConfigFactory.load())
 }
 
 // Lint回避のため
@@ -61,48 +78,29 @@ object IssuingServiceGatewayECPaymentApplicationSpec {
   ),
 )
 class IssuingServiceGatewayECPaymentApplicationSpec
-    extends StandardSpec
+    extends ScalaTestWithTypedActorTestKit(IssuingServiceGatewayECPaymentApplicationSpec.config)
+    with StandardSpec
     with AnyWordSpecLike
     with DISessionSupport
     with JDBCSupport
-    with Inside
-    with ScalaFutures {
+    with Inside {
   import IssuingServiceGatewayECPaymentApplicationSpec._
 
   implicit val appRequestContext: AppRequestContext = AppRequestContext(TraceId("1"), tenant = Example)
 
   override protected val diDesign: Design = UtilityDIDesign.utilityDesign
     .add(ReadModelDIDesign.readModelDesign)
-    .bind[ActorSystem].toProvider { config: Config =>
-      ActorSystem("IssuingServiceECPaymentApplicationSpec", config)
-    }
-    .bind[typed.ActorSystem[Nothing]].toSingletonProvider[ActorSystem](_.toTyped)
+    .bind[ActorSystem[Nothing]].toInstance(system)
     .bind[IssuingServiceGateway].toInstance(issuingService)
     .bind[TransactionIdFactory].toInstance(transactionIdFactory)
     .bind[PaymentIdFactory].toInstance(paymentIdFactory)
     .bind[Config].toInstance {
-      ConfigFactory
-        .parseString(s"""
-                                 | akka {
-                                 |  actor {
-                                 |    provider = "cluster"
-                                 |  }
-                                 |  cluster.sharding.passivate-idle-entity-after = off
-                                 |
-                                 |  remote {
-                                 |    artery {
-                                 |      canonical {
-                                 |        port = 0
-                                 |      }
-                                 |    }
-                                 |  }
-                                 |}
-       """.stripMargin).withFallback(ConfigFactory.load())
+      config
     }
     .bind[IssuingServiceECPaymentApplication].to[IssuingServiceECPaymentApplicationImpl]
 
   "IssuingServiceECPaymentApplicationSpec" should {
-    val system  = diSession.build[typed.ActorSystem[Nothing]]
+    val system  = diSession.build[ActorSystem[Nothing]]
     val cluster = Cluster(system)
     cluster.join(cluster.selfAddress)
 

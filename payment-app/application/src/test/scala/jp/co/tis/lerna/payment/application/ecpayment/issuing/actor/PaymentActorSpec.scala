@@ -1,6 +1,5 @@
 package jp.co.tis.lerna.payment.application.ecpayment.issuing.actor
 
-import akka.actor.ActorSystem
 import akka.actor.typed.ActorRef
 import akka.cluster.sharding.typed.scaladsl.{ EntityContext, EntityTypeKey }
 import com.typesafe.config.{ Config, ConfigFactory }
@@ -53,7 +52,6 @@ class PaymentActorSpec
 
   override protected val diDesign: Design = ReadModelDIDesign.readModelDesign
     .add(ReadModelDIDesign.readModelDesign)
-    .bind[ActorSystem].toInstance(system.classicSystem)
     .bind[Config].toInstance(ConfigFactory.load)
     .bind[LocalDateTimeFactory].toInstance(FixedLocalDateTimeFactory("2019-05-01T00:00:00Z"))
 
