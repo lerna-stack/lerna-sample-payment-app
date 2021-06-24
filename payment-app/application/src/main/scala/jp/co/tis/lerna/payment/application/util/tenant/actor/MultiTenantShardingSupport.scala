@@ -45,7 +45,7 @@ object MultiTenantShardingSupport {
   }
 }
 
-/** ClusterSharding で　Entity Actor として使用されるマルチテナント対応 Actor
+/** ClusterSharding で　Entity Actor として使用されるマルチテナント対応 Actor用
   */
 trait MultiTenantShardingSupport[Command] extends MultiTenantSupport {
   def entityContext: EntityContext[Command]
