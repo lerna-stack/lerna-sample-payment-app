@@ -2,7 +2,7 @@ package jp.co.tis.lerna.payment.application.ecpayment.issuing.actor
 
 import akka.actor.typed.ActorRef
 import akka.cluster.sharding.typed.scaladsl.{ EntityContext, EntityTypeKey }
-import com.typesafe.config.{ Config, ConfigFactory }
+import com.typesafe.config.Config
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model._
 import jp.co.tis.lerna.payment.adapter.ecpayment.model.{ OrderId, WalletShopId }
 import jp.co.tis.lerna.payment.adapter.issuing.IssuingServiceGateway
@@ -42,7 +42,7 @@ import org.scalatest.wordspec.AnyWordSpecLike
   ),
 )
 class PaymentActorSpec
-    extends ScalaTestWithTypedActorTestKit(ConfigFactory.load("application.conf"))
+    extends ScalaTestWithTypedActorTestKit()
     with AnyWordSpecLike
     with DISessionSupport
     with JDBCSupport {
@@ -52,7 +52,7 @@ class PaymentActorSpec
 
   override protected val diDesign: Design = ReadModelDIDesign.readModelDesign
     .add(ReadModelDIDesign.readModelDesign)
-    .bind[Config].toInstance(ConfigFactory.load)
+    .bind[Config].toInstance(system.settings.config)
     .bind[LocalDateTimeFactory].toInstance(FixedLocalDateTimeFactory("2019-05-01T00:00:00Z"))
 
   implicit val appRequestContext: AppRequestContext = AppRequestContext(TraceId("1"), tenant)

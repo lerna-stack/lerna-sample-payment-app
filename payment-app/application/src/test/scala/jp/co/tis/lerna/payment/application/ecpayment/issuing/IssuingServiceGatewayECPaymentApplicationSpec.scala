@@ -65,7 +65,7 @@ object IssuingServiceGatewayECPaymentApplicationSpec {
                     |    }
                     |  }
                     |}
-       """.stripMargin).withFallback(ConfigFactory.load())
+       """.stripMargin).withFallback(ConfigFactory.load("application-test.conf"))
 }
 
 // Lint回避のため

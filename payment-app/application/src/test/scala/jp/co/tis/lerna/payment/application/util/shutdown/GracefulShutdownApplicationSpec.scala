@@ -6,7 +6,6 @@ import akka.actor.typed.scaladsl.Behaviors
 import akka.cluster.Cluster
 import akka.cluster.sharding.typed.ShardingEnvelope
 import akka.cluster.sharding.typed.scaladsl.{ ClusterSharding, Entity, EntityTypeKey }
-import com.typesafe.config.ConfigFactory
 import jp.co.tis.lerna.payment.adapter.util.shutdown.GracefulShutdownApplication
 import jp.co.tis.lerna.payment.utility.scalatest.StandardSpec
 import lerna.testkit.airframe.DISessionSupport
@@ -31,7 +30,7 @@ object GracefulShutdownApplicationSpec {
   ),
 )
 class GracefulShutdownApplicationSpec
-    extends ScalaTestWithTypedActorTestKit(ConfigFactory.load("application.conf"))
+    extends ScalaTestWithTypedActorTestKit()
     with StandardSpec
     with ScalaFutures
     with Eventually

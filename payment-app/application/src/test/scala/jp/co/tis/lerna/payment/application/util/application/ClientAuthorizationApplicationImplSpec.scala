@@ -1,6 +1,5 @@
 package jp.co.tis.lerna.payment.application.util.application
 
-import com.typesafe.config.ConfigFactory
 import jp.co.tis.lerna.payment.adapter.util.authorization.model.{ AuthorizationScope, Subject }
 import jp.co.tis.lerna.payment.adapter.wallet.ClientId
 import jp.co.tis.lerna.payment.application.ApplicationDIDesign
@@ -19,7 +18,7 @@ import wvlet.airframe.Design
   ),
 )
 final class ClientAuthorizationApplicationImplSpec
-    extends ScalaTestWithTypedActorTestKit(ConfigFactory.load("application.conf"))
+    extends ScalaTestWithTypedActorTestKit()
     with StandardSpec
     with DISessionSupport {
 

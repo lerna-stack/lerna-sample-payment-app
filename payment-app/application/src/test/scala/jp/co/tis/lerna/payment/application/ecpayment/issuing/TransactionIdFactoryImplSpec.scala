@@ -1,7 +1,7 @@
 package jp.co.tis.lerna.payment.application.ecpayment.issuing
 
 import akka.actor.typed.ActorSystem
-import com.typesafe.config.{ Config, ConfigFactory }
+import com.typesafe.config.Config
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model.TransactionId
 import jp.co.tis.lerna.payment.application.util.sequence.TransactionIdSequenceFactory
 import jp.co.tis.lerna.payment.utility.UtilityDIDesign
@@ -23,10 +23,7 @@ import scala.concurrent.Future
     "org.wartremover.warts.Throw",
   ),
 )
-class TransactionIdFactoryImplSpec
-    extends ScalaTestWithTypedActorTestKit(ConfigFactory.load("application.conf"))
-    with StandardSpec
-    with DISessionSupport {
+class TransactionIdFactoryImplSpec extends ScalaTestWithTypedActorTestKit() with StandardSpec with DISessionSupport {
 
   private val transactionIdSequenceFactory = new TransactionIdSequenceFactory {
     override def nextId(subId: Option[String])(implicit tenant: Tenant): Future[BigInt] = Future.successful(BigInt(1))
@@ -36,7 +33,7 @@ class TransactionIdFactoryImplSpec
     .bind[TransactionIdFactory].to[TransactionIdFactoryImpl]
     .bind[TransactionIdSequenceFactory].toInstance(transactionIdSequenceFactory)
     .bind[ActorSystem[Nothing]].toInstance(system)
-    .bind[Config].toInstance(ConfigFactory.load())
+    .bind[Config].toInstance(system.settings.config)
 
   private implicit val tenant: Tenant = Example
 

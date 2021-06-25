@@ -1,9 +1,9 @@
 package jp.co.tis.lerna.payment.application.readmodelupdater.salesdetail.eventhandler
 
-import akka.actor.typed.scaladsl.adapter._
 import akka.actor.ActorRef
 import akka.actor.typed.ActorSystem
-import com.typesafe.config.{ Config, ConfigFactory }
+import akka.actor.typed.scaladsl.adapter._
+import com.typesafe.config.Config
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model._
 import jp.co.tis.lerna.payment.adapter.ecpayment.model.{ OrderId, WalletShopId }
 import jp.co.tis.lerna.payment.adapter.issuing.model.{
@@ -57,7 +57,7 @@ import scala.concurrent.{ ExecutionContextExecutor, Future }
   ),
 )
 class ECPaymentIssuingServiceEventHandlerSpec
-    extends ScalaTestWithTypedActorTestKit(ConfigFactory.load("application.conf"))
+    extends ScalaTestWithTypedActorTestKit()
     with StandardSpec
     with DISessionSupport
     with JDBCSupport
@@ -73,7 +73,7 @@ class ECPaymentIssuingServiceEventHandlerSpec
     .add(ReadModelDIDesign.readModelDesign)
     .add(ApplicationDIDesign.applicationDesign)
     .bind[ActorSystem[Nothing]].toInstance(system)
-    .bind[Config].toInstance(ConfigFactory.load())
+    .bind[Config].toInstance(system.settings.config)
     .bind[LocalDateTimeFactory].toInstance(FixedLocalDateTimeFactory("2019-05-01T11:22:33Z"))
     .bind[AppTenant].toInstance(tenant)
     .bind[HouseMoneySettlementNotification].toInstance(new HouseMoneySettlementNotification {

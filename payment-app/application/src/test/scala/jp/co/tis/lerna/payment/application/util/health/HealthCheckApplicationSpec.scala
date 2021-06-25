@@ -2,7 +2,7 @@ package jp.co.tis.lerna.payment.application.util.health
 
 import akka.Done
 import akka.actor.typed.ActorSystem
-import com.typesafe.config.{ Config, ConfigFactory }
+import com.typesafe.config.Config
 import jp.co.tis.lerna.payment.utility.UtilityDIDesign
 import lerna.util.time.{ FixedLocalDateTimeFactory, LocalDateTimeFactory }
 import jp.co.tis.lerna.payment.adapter.util.health.HealthCheckApplication
@@ -25,15 +25,12 @@ import scala.concurrent.Future
     "org.wartremover.warts.Throw",
   ),
 )
-class HealthCheckApplicationSpec
-    extends ScalaTestWithTypedActorTestKit(ConfigFactory.load("application.conf"))
-    with StandardSpec
-    with DISessionSupport {
+class HealthCheckApplicationSpec extends ScalaTestWithTypedActorTestKit() with StandardSpec with DISessionSupport {
 
   override val diDesign: Design = UtilityDIDesign.utilityDesign
     .bind[LocalDateTimeFactory].toInstance(FixedLocalDateTimeFactory("2019-05-01T00:00:00Z"))
     .add(ReadModelDIDesign.readModelDesign)
-    .bind[Config].toInstance(ConfigFactory.load)
+    .bind[Config].toInstance(system.settings.config)
     .bind[ActorSystem[Nothing]].toInstance(system)
     .bind[HealthCheckApplication].to[HealthCheckApplicationImpl]
 
