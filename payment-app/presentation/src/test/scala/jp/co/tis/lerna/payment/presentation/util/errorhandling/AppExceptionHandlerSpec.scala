@@ -1,6 +1,7 @@
 package jp.co.tis.lerna.payment.presentation.util.errorhandling
 
 import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.directives.MethodDirectives._
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import jp.co.tis.lerna.payment.adapter.util.exception.BusinessException
@@ -19,7 +20,7 @@ class AppExceptionHandlerSpec extends StandardSpec with ScalatestRouteTest with 
           throw new BusinessException(NotFound("userNm"))
         }
 
-        Get() ~> route ~> check {
+        Get() ~> Route.seal(route) ~> check {
           expect {
             status === StatusCodes.NotFound
             contentType === `application/json(UTF-8)`
@@ -39,7 +40,7 @@ class AppExceptionHandlerSpec extends StandardSpec with ScalatestRouteTest with 
           throw new BusinessException(ForbiddenFailure())
         }
 
-        Get() ~> route ~> check {
+        Get() ~> Route.seal(route) ~> check {
           expect {
             status === StatusCodes.BadRequest
             contentType === `application/json(UTF-8)`
@@ -59,7 +60,7 @@ class AppExceptionHandlerSpec extends StandardSpec with ScalatestRouteTest with 
           throw new BusinessException(ValidationFailure("injected failure"))
         }
 
-        Get() ~> route ~> check {
+        Get() ~> Route.seal(route) ~> check {
           expect {
             status === StatusCodes.BadRequest
             contentType === `application/json(UTF-8)`
@@ -79,7 +80,7 @@ class AppExceptionHandlerSpec extends StandardSpec with ScalatestRouteTest with 
           throw new BusinessException(IssuingServiceAlreadyCanceled())
         }
 
-        Get() ~> route ~> check {
+        Get() ~> Route.seal(route) ~> check {
           expect {
             status === StatusCodes.BadRequest
             contentType === `application/json(UTF-8)`
@@ -99,7 +100,7 @@ class AppExceptionHandlerSpec extends StandardSpec with ScalatestRouteTest with 
           throw new BusinessException(TimeOut("transactionNm"))
         }
 
-        Get() ~> route ~> check {
+        Get() ~> Route.seal(route) ~> check {
           expect {
             status === StatusCodes.GatewayTimeout
             contentType === `application/json(UTF-8)`
@@ -119,7 +120,7 @@ class AppExceptionHandlerSpec extends StandardSpec with ScalatestRouteTest with 
           throw new BusinessException(IssuingServiceUnavailable("transactionNm"))
         }
 
-        Get() ~> route ~> check {
+        Get() ~> Route.seal(route) ~> check {
           expect {
             status === StatusCodes.ServiceUnavailable
             contentType === `application/json(UTF-8)`
@@ -139,7 +140,7 @@ class AppExceptionHandlerSpec extends StandardSpec with ScalatestRouteTest with 
           throw new BusinessException(IssuingServiceServerError("transactionNm", "my-error-code"))
         }
 
-        Get() ~> route ~> check {
+        Get() ~> Route.seal(route) ~> check {
           expect {
             status === StatusCodes.InternalServerError
             contentType === `application/json(UTF-8)`
@@ -159,7 +160,7 @@ class AppExceptionHandlerSpec extends StandardSpec with ScalatestRouteTest with 
           throw new BusinessException(IssuingServiceBadRequestError("transactionNm"))
         }
 
-        Get() ~> route ~> check {
+        Get() ~> Route.seal(route) ~> check {
           expect {
             status === StatusCodes.InternalServerError
             contentType === `application/json(UTF-8)`
@@ -179,7 +180,7 @@ class AppExceptionHandlerSpec extends StandardSpec with ScalatestRouteTest with 
           throw new BusinessException(IssuingServiceTimeoutError("transactionNm"))
         }
 
-        Get() ~> route ~> check {
+        Get() ~> Route.seal(route) ~> check {
           expect {
             status === StatusCodes.InternalServerError
             contentType === `application/json(UTF-8)`
@@ -199,7 +200,7 @@ class AppExceptionHandlerSpec extends StandardSpec with ScalatestRouteTest with 
           throw new BusinessException(UnpredictableError())
         }
 
-        Get() ~> route ~> check {
+        Get() ~> Route.seal(route) ~> check {
           expect {
             status === StatusCodes.InternalServerError
             contentType === `application/json(UTF-8)`
@@ -219,7 +220,7 @@ class AppExceptionHandlerSpec extends StandardSpec with ScalatestRouteTest with 
           throw new Error
         }
 
-        Get() ~> route ~> check {
+        Get() ~> Route.seal(route) ~> check {
           expect {
             status === StatusCodes.InternalServerError
           }
