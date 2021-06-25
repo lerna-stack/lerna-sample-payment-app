@@ -1,6 +1,8 @@
 package jp.co.tis.lerna.payment.entrypoint
 
-import akka.actor.{ ActorSystem, CoordinatedShutdown }
+import akka.actor.CoordinatedShutdown
+import akka.actor.typed.ActorSystem
+import akka.actor.typed.scaladsl.Behaviors
 import akka.cluster.Cluster
 import com.typesafe.config.ConfigFactory
 import lerna.log.AppLogging
@@ -34,7 +36,7 @@ object Main extends App with AppLogging {
     System.exit(1)
   }
 
-  private val system: ActorSystem = ActorSystem("GatewaySystem", config)
+  private val system: ActorSystem[Nothing] = ActorSystem[Nothing](Behaviors.empty, "GatewaySystem", config)
   logger.info("ActorSystem({})起動完了", system)
 
   val cluster = Cluster(system)

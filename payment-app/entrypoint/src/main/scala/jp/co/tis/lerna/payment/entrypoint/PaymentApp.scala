@@ -1,7 +1,8 @@
 package jp.co.tis.lerna.payment.entrypoint
 
 import akka.Done
-import akka.actor.{ ActorSystem, CoordinatedShutdown, Scheduler }
+import akka.actor.typed.ActorSystem
+import akka.actor.{ CoordinatedShutdown, Scheduler }
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.server.Route
@@ -19,14 +20,14 @@ import scala.util.{ Failure, Success }
 
 @SuppressWarnings(Array("org.wartremover.contrib.warts.MissingOverride"))
 class PaymentApp(implicit
-    val actorSystem: ActorSystem,
+    val actorSystem: ActorSystem[Nothing],
     rootRoute: RootRoute,
     config: Config,
     readModelUpdaterManager: ReadModelUpdaterManager,
     healthCheck: HealthCheckApplication,
 ) extends AppExceptionHandler
     with AppRejectionHandler {
-  import actorSystem.dispatcher
+  import actorSystem.executionContext
 
   def start(): Unit = {
     healthCheckWithRetry() onComplete {
@@ -86,8 +87,9 @@ class PaymentApp(implicit
   private def healthCheckWithRetry(): Future[Done] = {
     // ActorSystemやその拡張機能などの初期化処理で時間がかかる。
     // 初回起動時のHealthCheckは何度か失敗する可能性があるためリトライ処理を行う。
-    val healthCheckConfig             = new HealthCheckConfig(config)
-    implicit val scheduler: Scheduler = actorSystem.scheduler
+    val healthCheckConfig = new HealthCheckConfig(config)
+    import akka.actor.typed.scaladsl.adapter.TypedSchedulerOps
+    implicit val scheduler: Scheduler = actorSystem.scheduler.toClassic
     akka.pattern.retry(
       () => tenantsHealthCheck(),
       attempts = healthCheckConfig.retryLimitOnInit,

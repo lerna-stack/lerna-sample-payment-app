@@ -1,7 +1,6 @@
 package jp.co.tis.lerna.payment.entrypoint
 
-import akka.actor.typed.scaladsl.adapter._
-import akka.actor.{ typed, ActorSystem }
+import akka.actor.typed.ActorSystem
 import com.typesafe.config.Config
 import jp.co.tis.lerna.payment.application.ApplicationDIDesign
 import jp.co.tis.lerna.payment.gateway.GatewayDIDesign
@@ -16,13 +15,12 @@ object DIDesign extends DIDesign
 trait DIDesign {
 
   val configDesign: Design = newDesign
-    .bind[Config].toProvider((system: ActorSystem) => system.settings.config)
+    .bind[Config].toProvider((system: ActorSystem[Nothing]) => system.settings.config)
 
   @SuppressWarnings(Array("lerna.warts.CyclomaticComplexity"))
-  def design(system: ActorSystem): Design =
+  def design(system: ActorSystem[Nothing]): Design =
     newDesign
-      .bind[ActorSystem].toInstance(system)
-      .bind[typed.ActorSystem[Nothing]].toSingletonProvider[ActorSystem](_.toTyped)
+      .bind[ActorSystem[Nothing]].toInstance(system)
       .bind[PaymentApp].toSingleton
       .add(configDesign)
       .add(PresentationDIDesign.presentationDesign)
