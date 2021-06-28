@@ -216,6 +216,10 @@ lazy val `read-model` = (project in file("payment-app/read-model"))
       Slick.hikaricp,
       MariaDB.connectorJ,
     ),
+    scalacOptions ++= Seq(
+      // 自動生成コードの警告を無視
+      "-Wconf:cat=lint-multiarg-infix&src=scala/jp/co/tis/lerna/payment/readmodel/schema/Tables.scala:silent",
+    ),
   )
 
 lazy val `utility` = (project in file("payment-app/utility"))
