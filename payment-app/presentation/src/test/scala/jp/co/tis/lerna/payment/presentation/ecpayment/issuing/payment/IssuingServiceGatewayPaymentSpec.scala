@@ -209,7 +209,7 @@ class IssuingServiceGatewayPaymentSpec
         request ~> settlement.route() ~> check {
           rejections.map { rejection =>
             rejection shouldBe a[MalformedRequestContentRejection]
-            rejection match {
+            inside(rejection) {
               case m: MalformedRequestContentRejection =>
                 m.message should ===("Object is missing required member 'orderId'")
             }
@@ -308,7 +308,7 @@ class IssuingServiceGatewayPaymentSpec
         request ~> settlement.route() ~> check {
           rejections.map { rejection =>
             rejection shouldBe a[MalformedRequestContentRejection]
-            rejection match {
+            inside(rejection) {
               case m: MalformedRequestContentRejection =>
                 m.message should ===("Object is missing required member 'amount'")
             }

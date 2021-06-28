@@ -117,12 +117,9 @@ class IssuingServiceGatewayECPaymentApplicationSpec
           ClientId(123),
         )
 
-      whenReady(application.pay(settlementConfirmResponse).failed, timeout(Span(10, Seconds))) {
-        case ex: RuntimeException =>
-          ex match {
-            case ex: BusinessException =>
-              expect { ex.message.messageId === "CODE-002" }
-          }
+      inside(application.pay(settlementConfirmResponse).failed.futureValue(timeout(Span(10, Seconds)))) {
+        case ex: BusinessException =>
+          expect { ex.message.messageId === "CODE-002" }
       }
     }
 
@@ -131,12 +128,9 @@ class IssuingServiceGatewayECPaymentApplicationSpec
       val paymentCancelParameter =
         PaymentCancelParameter(WalletShopId("456"), OrderId("456"), CustomerId("123"), ClientId(123))
 
-      whenReady(application.cancel(paymentCancelParameter).failed, timeout(Span(10, Seconds))) {
-        case ex: RuntimeException =>
-          ex match {
-            case ex: BusinessException =>
-              expect { ex.message.messageId === "CODE-002" }
-          }
+      inside(application.cancel(paymentCancelParameter).failed.futureValue(timeout(Span(10, Seconds)))) {
+        case ex: BusinessException =>
+          expect { ex.message.messageId === "CODE-002" }
       }
       system.terminate()
     }
