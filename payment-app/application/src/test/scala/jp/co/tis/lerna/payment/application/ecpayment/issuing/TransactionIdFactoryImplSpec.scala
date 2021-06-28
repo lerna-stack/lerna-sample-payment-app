@@ -1,17 +1,15 @@
 package jp.co.tis.lerna.payment.application.ecpayment.issuing
 
-import akka.actor.ActorSystem
-import akka.testkit.TestKit
-import com.typesafe.config.{ Config, ConfigFactory }
+import akka.actor.typed.ActorSystem
+import com.typesafe.config.Config
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model.TransactionId
 import jp.co.tis.lerna.payment.application.util.sequence.TransactionIdSequenceFactory
 import jp.co.tis.lerna.payment.utility.UtilityDIDesign
 import jp.co.tis.lerna.payment.utility.scalatest.StandardSpec
 import jp.co.tis.lerna.payment.utility.tenant.Example
 import lerna.testkit.airframe.DISessionSupport
+import lerna.testkit.akka.ScalaTestWithTypedActorTestKit
 import lerna.util.tenant.Tenant
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.concurrent.ScalaFutures
 import wvlet.airframe.Design
 
 import scala.concurrent.Future
@@ -25,12 +23,7 @@ import scala.concurrent.Future
     "org.wartremover.warts.Throw",
   ),
 )
-class TransactionIdFactoryImplSpec
-    extends TestKit(ActorSystem("TransactionIdFactoryImplSpec"))
-    with StandardSpec
-    with BeforeAndAfterAll
-    with ScalaFutures
-    with DISessionSupport {
+class TransactionIdFactoryImplSpec extends ScalaTestWithTypedActorTestKit() with StandardSpec with DISessionSupport {
 
   private val transactionIdSequenceFactory = new TransactionIdSequenceFactory {
     override def nextId(subId: Option[String])(implicit tenant: Tenant): Future[BigInt] = Future.successful(BigInt(1))
@@ -39,8 +32,8 @@ class TransactionIdFactoryImplSpec
   override protected val diDesign: Design = UtilityDIDesign.utilityDesign
     .bind[TransactionIdFactory].to[TransactionIdFactoryImpl]
     .bind[TransactionIdSequenceFactory].toInstance(transactionIdSequenceFactory)
-    .bind[ActorSystem].toInstance(system)
-    .bind[Config].toInstance(ConfigFactory.load())
+    .bind[ActorSystem[Nothing]].toInstance(system)
+    .bind[Config].toInstance(system.settings.config)
 
   private implicit val tenant: Tenant = Example
 
@@ -51,10 +44,5 @@ class TransactionIdFactoryImplSpec
         expect { r === TransactionId(1) }
       }
     }
-  }
-
-  override def afterAll(): Unit = {
-    shutdown()
-    super.afterAll()
   }
 }

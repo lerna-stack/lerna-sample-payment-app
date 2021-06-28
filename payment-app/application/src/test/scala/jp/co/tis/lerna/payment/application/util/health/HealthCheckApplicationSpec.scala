@@ -1,9 +1,8 @@
 package jp.co.tis.lerna.payment.application.util.health
 
 import akka.Done
-import akka.actor.ActorSystem
-import akka.testkit.TestKit
-import com.typesafe.config.{ Config, ConfigFactory }
+import akka.actor.typed.ActorSystem
+import com.typesafe.config.Config
 import jp.co.tis.lerna.payment.utility.UtilityDIDesign
 import lerna.util.time.{ FixedLocalDateTimeFactory, LocalDateTimeFactory }
 import jp.co.tis.lerna.payment.adapter.util.health.HealthCheckApplication
@@ -11,8 +10,7 @@ import jp.co.tis.lerna.payment.readmodel.ReadModelDIDesign
 import jp.co.tis.lerna.payment.utility.scalatest.StandardSpec
 import jp.co.tis.lerna.payment.utility.tenant.{ AppTenant, Example }
 import lerna.testkit.airframe.DISessionSupport
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.concurrent.ScalaFutures
+import lerna.testkit.akka.ScalaTestWithTypedActorTestKit
 import org.scalatest.time.{ Millis, Seconds, Span }
 import wvlet.airframe.Design
 
@@ -27,18 +25,13 @@ import scala.concurrent.Future
     "org.wartremover.warts.Throw",
   ),
 )
-class HealthCheckApplicationSpec
-    extends TestKit(ActorSystem("HealthCheckApplicationSpec"))
-    with StandardSpec
-    with BeforeAndAfterAll
-    with ScalaFutures
-    with DISessionSupport {
+class HealthCheckApplicationSpec extends ScalaTestWithTypedActorTestKit() with StandardSpec with DISessionSupport {
 
   override val diDesign: Design = UtilityDIDesign.utilityDesign
     .bind[LocalDateTimeFactory].toInstance(FixedLocalDateTimeFactory("2019-05-01T00:00:00Z"))
     .add(ReadModelDIDesign.readModelDesign)
-    .bind[Config].toInstance(ConfigFactory.load)
-    .bind[ActorSystem].toInstance(system)
+    .bind[Config].toInstance(system.settings.config)
+    .bind[ActorSystem[Nothing]].toInstance(system)
     .bind[HealthCheckApplication].to[HealthCheckApplicationImpl]
 
   implicit val defaultPatience: PatienceConfig =
@@ -77,10 +70,5 @@ class HealthCheckApplicationSpec
         newSession.close()
       }
     }
-  }
-
-  override def afterAll(): Unit = {
-    shutdown()
-    super.afterAll()
   }
 }

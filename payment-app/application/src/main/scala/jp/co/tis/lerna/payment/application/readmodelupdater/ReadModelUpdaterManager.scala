@@ -1,6 +1,6 @@
 package jp.co.tis.lerna.payment.application.readmodelupdater
 
-import akka.actor.{ typed, ActorSystem }
+import akka.actor.typed.ActorSystem
 import akka.cluster.sharding.typed.scaladsl.ShardedDaemonProcess
 import akka.projection.eventsourced.scaladsl.EventSourcedProvider
 import akka.projection.slick.SlickProjection
@@ -13,14 +13,9 @@ import jp.co.tis.lerna.payment.utility.tenant.AppTenant
 import wvlet.airframe._
 
 class ReadModelUpdaterManager(
-    classicSystem: ActorSystem,
     session: Session,
     jdbcService: JDBCService,
-) {
-  import akka.actor.typed.scaladsl.adapter._
-
-  private implicit val system: typed.ActorSystem[Nothing] = classicSystem.toTyped
-
+)(implicit system: ActorSystem[Nothing]) {
   @SuppressWarnings(Array("org.wartremover.contrib.warts.MissingOverride"))
   private val eventHandlers =
     AppTenant.values

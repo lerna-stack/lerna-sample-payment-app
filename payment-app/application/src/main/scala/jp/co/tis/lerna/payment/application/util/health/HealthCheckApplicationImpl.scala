@@ -1,9 +1,8 @@
 package jp.co.tis.lerna.payment.application.util.health
 
 import akka.actor.typed.scaladsl.AskPattern.Askable
-import akka.actor.typed.scaladsl.adapter._
-import akka.actor.typed.{ ActorRef, Scheduler }
-import akka.actor.{ ActorSystem, CoordinatedShutdown, NoSerializationVerificationNeeded }
+import akka.actor.typed.{ ActorRef, ActorSystem, Scheduler }
+import akka.actor.{ CoordinatedShutdown, NoSerializationVerificationNeeded }
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.scaladsl.{ Effect, EventSourcedBehavior }
 import akka.stream.alpakka.cassandra.scaladsl.CassandraSessionRegistry
@@ -19,7 +18,7 @@ import lerna.log.AppLogging
 import lerna.util.time.JavaDurationConverters._
 
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.{ AtomicBoolean, AtomicInteger }
 import scala.concurrent.Future
 import scala.util.Failure
 
@@ -43,20 +42,26 @@ object HealthCheckApplicationImpl {
 
     object TestPersistentActor {
       final case class Ping(replyTo: ActorRef[Done]) extends NoSerializationVerificationNeeded
+
+      private val counter    = new AtomicInteger(1)
+      def uniqueId(): String = s"${this.getClass.getName}-${counter.getAndIncrement().toString}"
     }
 
     /** 初期化順の関係で autoCreateTable などの AkkaPersistenceCassandra のセッション初期化処理が実行されないことがある問題に対処する
       */
-    def initializeAkkaPersistenceCassandra(system: ActorSystem)(implicit _tenant: AppTenant): Future[Done] = {
-      val actor = system.spawnAnonymous(new TestPersistentActor(system.settings.config).eventSourcedBehavior())
+    def initializeAkkaPersistenceCassandra(system: ActorSystem[Nothing])(implicit _tenant: AppTenant): Future[Done] = {
+      val actor = system.systemActorOf(
+        new TestPersistentActor(system.settings.config).eventSourcedBehavior(),
+        name = TestPersistentActor.uniqueId(),
+      )
 
       implicit val timeout: Timeout = system.settings.config
         .getDuration(
           "jp.co.tis.lerna.payment.application.util.health.wait-for-akka-persistence-cassandra-initialization",
         ).asScala
 
-      implicit val scheduler: Scheduler = system.scheduler.toTyped
-      import system.dispatcher
+      implicit val scheduler: Scheduler = system.scheduler
+      import system.executionContext
       (actor ? TestPersistentActor.Ping) andThen {
         case Failure(exception) =>
           import lerna.util.tenant.TenantComponentLogContext.logContext
@@ -66,11 +71,11 @@ object HealthCheckApplicationImpl {
   }
 }
 
-class HealthCheckApplicationImpl(config: Config, tables: Tables, system: ActorSystem, jdbcService: JDBCService)
+class HealthCheckApplicationImpl(config: Config, tables: Tables, system: ActorSystem[Nothing], jdbcService: JDBCService)
     extends HealthCheckApplication
     with AppLogging {
 
-  import system.dispatcher
+  import system.executionContext
 
   private[this] val sessionMap = AppTenant.values.map { implicit tenant =>
     /* 1. CassandraSessionRegistry(system).sessionFor は config keyごとに session を共有している

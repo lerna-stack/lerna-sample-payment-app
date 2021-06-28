@@ -1,7 +1,5 @@
 package jp.co.tis.lerna.payment.application.util.application
 
-import akka.actor.ActorSystem
-import akka.testkit.TestKit
 import jp.co.tis.lerna.payment.adapter.util.authorization.model.{ AuthorizationScope, Subject }
 import jp.co.tis.lerna.payment.adapter.wallet.ClientId
 import jp.co.tis.lerna.payment.application.ApplicationDIDesign
@@ -10,9 +8,8 @@ import jp.co.tis.lerna.payment.utility.AppRequestContext
 import jp.co.tis.lerna.payment.utility.scalatest.StandardSpec
 import jp.co.tis.lerna.payment.utility.tenant.Example
 import lerna.testkit.airframe.DISessionSupport
+import lerna.testkit.akka.ScalaTestWithTypedActorTestKit
 import lerna.util.trace.TraceId
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.concurrent.ScalaFutures
 import wvlet.airframe.Design
 
 @SuppressWarnings(
@@ -21,10 +18,8 @@ import wvlet.airframe.Design
   ),
 )
 final class ClientAuthorizationApplicationImplSpec
-    extends TestKit(ActorSystem("ClientAuthorizationApplicationImplSpec"))
+    extends ScalaTestWithTypedActorTestKit()
     with StandardSpec
-    with BeforeAndAfterAll
-    with ScalaFutures
     with DISessionSupport {
 
   override protected val diDesign: Design = ApplicationDIDesign.applicationDesign

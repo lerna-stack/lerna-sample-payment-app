@@ -1,7 +1,6 @@
 package jp.co.tis.lerna.payment.presentation.management
 
 import akka.Done
-import akka.actor.ActorSystem
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.testkit.ScalatestRouteTest
@@ -27,7 +26,6 @@ import org.scalatest.wordspec.AnyWordSpec
 class HealthRouteSpec extends AnyWordSpec with StandardSpec with ScalatestRouteTest with Inside with DISessionSupport {
 
   override protected val diDesign: Design = PresentationDIDesign.presentationDesign
-    .bind[ActorSystem].toInstance(system)
     .bind[Config].toInstance(ConfigFactory.load)
     .bind[HealthCheckApplication].to[HealthCheckApplicationImplMock]
   val route: HealthRoute = diSession.build[HealthRoute]

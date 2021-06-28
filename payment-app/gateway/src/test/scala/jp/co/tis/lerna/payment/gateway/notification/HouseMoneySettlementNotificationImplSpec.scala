@@ -1,7 +1,6 @@
 package jp.co.tis.lerna.payment.gateway.notification
 
-import akka.actor.ActorSystem
-import akka.testkit.TestKit
+import akka.actor.typed.ActorSystem
 import com.github.tomakehurst.wiremock.client.WireMock._
 import com.typesafe.config.{ Config, ConfigFactory }
 import jp.co.tis.lerna.payment.adapter.notification.HouseMoneySettlementNotification
@@ -15,9 +14,9 @@ import jp.co.tis.lerna.payment.utility.{ AppRequestContext, UtilityDIDesign }
 import jp.co.tis.lerna.payment.utility.scalatest.StandardSpec
 import jp.co.tis.lerna.payment.utility.tenant.Example
 import lerna.testkit.airframe.DISessionSupport
+import lerna.testkit.akka.ScalaTestWithTypedActorTestKit
 import lerna.util.trace.TraceId
 import org.scalatest.Inside
-import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{ Millis, Seconds, Span }
 import wvlet.airframe.Design
 
@@ -31,13 +30,12 @@ import wvlet.airframe.Design
   ),
 )
 class HouseMoneySettlementNotificationImplSpec
-    extends TestKit(ActorSystem("HouseMoneySettlementNotificationImplSpec"))
+    extends ScalaTestWithTypedActorTestKit()
     with StandardSpec
     with DISessionSupport
     with NotificationSystemMockSupport
-    with ScalaFutures
     with Inside {
-  private implicit val appRequestContext: AppRequestContext = AppRequestContext(TraceId("1"), tenant = Example)
+  implicit val appRequestContext: AppRequestContext = AppRequestContext(TraceId("1"), tenant = Example)
 
   override protected val diDesign: Design = UtilityDIDesign.utilityDesign
     .add(ExternalServiceMockDIDesign.externalServiceMockDesign)
@@ -51,7 +49,7 @@ class HouseMoneySettlementNotificationImplSpec
         .withFallback(ConfigFactory.defaultReferenceUnresolved())
         .resolve()
     }
-    .bind[ActorSystem].toInstance(system)
+    .bind[ActorSystem[Nothing]].toInstance(system)
     .bind[HouseMoneySettlementNotification].to[HouseMoneySettlementNotificationImpl]
 
   implicit val defaultPatience: PatienceConfig =
@@ -66,7 +64,7 @@ class HouseMoneySettlementNotificationImplSpec
       )
 
       whenReady(notificationSystemGateway.notice("1")) { res =>
-        res mustBe a[NotificationSuccess]
+        res shouldBe a[NotificationSuccess]
       }
 
       val except = """{"walletSettlementId":"1"}"""
@@ -86,7 +84,7 @@ class HouseMoneySettlementNotificationImplSpec
       )
 
       whenReady(notificationSystemGateway.notice("1")) { res =>
-        res mustBe a[NotificationFailure]
+        res shouldBe a[NotificationFailure]
       }
     }
 
@@ -96,7 +94,7 @@ class HouseMoneySettlementNotificationImplSpec
       )
 
       whenReady(notificationSystemGateway.notice("1")) { res =>
-        res mustBe a[NotificationFailure]
+        res shouldBe a[NotificationFailure]
       }
     }
 
@@ -106,7 +104,7 @@ class HouseMoneySettlementNotificationImplSpec
       )
 
       whenReady(notificationSystemGateway.notice("1")) { res =>
-        res mustBe a[NotificationFailure]
+        res shouldBe a[NotificationFailure]
       }
     }
 
@@ -130,13 +128,8 @@ class HouseMoneySettlementNotificationImplSpec
       val badNotificationSystemGateway = diDesign.newSession.build[HouseMoneySettlementNotification]
 
       whenReady(badNotificationSystemGateway.notice("1")) { res =>
-        res mustBe a[NotificationFailure]
+        res shouldBe a[NotificationFailure]
       }
     }
-  }
-
-  override def afterAll(): Unit = {
-    shutdown()
-    super.afterAll()
   }
 }

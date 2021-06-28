@@ -1,6 +1,5 @@
 package jp.co.tis.lerna.payment.presentation.ecpayment.issuing.payment
 
-import akka.actor.ActorSystem
 import akka.http.scaladsl.model.ContentTypes._
 import akka.http.scaladsl.model.{ ContentTypes, StatusCodes }
 import akka.http.scaladsl.server.Directives.provide
@@ -86,7 +85,6 @@ class IssuingServiceGatewayPaymentSpec
   import IssuingServiceGatewayPaymentSpec._
 
   override val diDesign: Design = UtilityDIDesign.utilityDesign
-    .bind[ActorSystem].toInstance(system)
     .bind[ApiThrottling].to[NoLimitApiThrottling]
     .bind[IssuingServiceECPaymentApplication].toInstance(issuingServiceECPaymentApplication)
     .bind[IssuingService].toSingleton

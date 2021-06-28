@@ -152,12 +152,12 @@ lazy val `gateway` = (project in file("payment-app/gateway"))
     libraryDependencies ++= Seq(
       Lerna.http,
       Airframe.airframe,
-      Akka.actor,
+      Akka.actorTyped,
       Akka.stream,
       AkkaHttp.http,
       AkkaHttp.sprayJson,
-      Akka.testKit         % Test,
-      AkkaHttp.httpTestKit % Test,
+      Akka.actorTestKitTyped % Test,
+      AkkaHttp.httpTestKit   % Test,
     ),
   )
 
@@ -187,14 +187,10 @@ lazy val `application` = (project in file("payment-app/application"))
       Lerna.utilAkka,
       Lerna.management,
       Airframe.airframe,
-      Akka.actor,
       Akka.stream,
-      Akka.persistence,
       Akka.persistenceTyped,
-      Akka.cluster,
       Akka.clusterTyped,
       Akka.clusterTools,
-      Akka.clusterSharding,
       Akka.clusterShardingTyped,
       Akka.slf4j,
       Akka.persistenceQuery,
@@ -203,7 +199,6 @@ lazy val `application` = (project in file("payment-app/application"))
       AkkaProjection.slick,
       Kryo.kryo,
       SprayJson.sprayJson,
-      Akka.testKit           % Test,
       Akka.actorTestKitTyped % Test,
       Akka.multiNodeTestKit  % Test,
       Akka.streamTestKit     % Test,
@@ -303,12 +298,11 @@ lazy val `external-system-testkit` = (project in file("payment-app/external-syst
   .settings(
     name := "external-system-testkit",
     libraryDependencies ++= Seq(
-      Akka.actor           % Test,
-      Akka.testKit         % Test,
-      Akka.stream          % Test,
-      AkkaHttp.http        % Test,
-      AkkaHttp.httpTestKit % Test,
-      AkkaHttp.sprayJson   % Test,
+      Akka.actorTestKitTyped % Test,
+      Akka.stream            % Test,
+      AkkaHttp.http          % Test,
+      AkkaHttp.httpTestKit   % Test,
+      AkkaHttp.sprayJson     % Test,
     ),
   )
 

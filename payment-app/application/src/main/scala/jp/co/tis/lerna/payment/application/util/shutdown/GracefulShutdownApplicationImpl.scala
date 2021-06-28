@@ -1,12 +1,12 @@
 package jp.co.tis.lerna.payment.application.util.shutdown
 
-import akka.actor.ActorSystem
+import akka.actor.typed.ActorSystem
 import akka.cluster.sharding.{ ClusterSharding, ShardRegion }
 import jp.co.tis.lerna.payment.adapter.util.shutdown.GracefulShutdownApplication
 import lerna.log.AppLogging
 
 class GracefulShutdownApplicationImpl(
-    system: ActorSystem,
+    system: ActorSystem[Nothing],
 ) extends GracefulShutdownApplication
     with AppLogging {
   import lerna.log.SystemComponentLogContext.logContext

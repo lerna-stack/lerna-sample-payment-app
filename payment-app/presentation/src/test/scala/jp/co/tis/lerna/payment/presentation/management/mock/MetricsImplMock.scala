@@ -1,6 +1,5 @@
 package jp.co.tis.lerna.payment.presentation.management.mock
 
-import akka.actor.ActorSystem
 import com.typesafe.config.Config
 import kamon.Kamon
 import kamon.metric.PeriodSnapshot
@@ -17,7 +16,7 @@ final case class Settings(
     "org.wartremover.warts.Var",
   ),
 )
-class MetricsImplMock(system: ActorSystem, config: Config = Kamon.config()) extends Metrics {
+class MetricsImplMock(config: Config = Kamon.config()) extends Metrics {
 
   override def reportPeriodSnapshot(snapshot: PeriodSnapshot): Unit = ???
 
