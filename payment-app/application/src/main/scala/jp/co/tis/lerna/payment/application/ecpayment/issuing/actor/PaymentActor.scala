@@ -343,7 +343,7 @@ object PaymentActor extends AppTypedActorLogging {
 
       for {
         payCredential <- fetchPayCredential(customerId, payRequest.clientId, payRequest.walletShopId)
-        transactionId <- setup.transactionIdFactory.generate
+        transactionId <- setup.transactionIdFactory.generate()
         paymentId     <- setup.paymentIdFactory.generateIdFor(customerId)
         request = {
           setup.logger.debug("walletId:" + payCredential.walletId.toString)
@@ -623,7 +623,7 @@ object PaymentActor extends AppTypedActorLogging {
           issuingServiceCancel.walletShopId,
         )
         paymentId     <- setup.paymentIdFactory.generateIdFor(customerId)
-        transactionId <- setup.transactionIdFactory.generate
+        transactionId <- setup.transactionIdFactory.generate()
         acquirerReversalRequestParameter = AcquirerReversalRequestParameter(
           transactionId = transactionId,        // 取引ID、採番
           paymentId = paymentId,                // (会員ごと)決済番号
