@@ -13,11 +13,11 @@ trait JDBCService {
 
   private[this] val config = bind[Config]
 
-  def db()(implicit tenant: AppTenant): JdbcBackend#Database = {
+  def db(implicit tenant: AppTenant): JdbcBackend#Database = {
     dbConfigMap(tenant).db
   }
 
-  def dbConfig()(implicit tenant: AppTenant): DatabaseConfig[JdbcProfile] = {
+  def dbConfig(implicit tenant: AppTenant): DatabaseConfig[JdbcProfile] = {
     dbConfigMap(tenant)
   }
 
