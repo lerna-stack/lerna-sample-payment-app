@@ -17,7 +17,7 @@ import wvlet.airframe.{ newDesign, Design, Session }
 )
 class ApiThrottlingSpec extends StandardSpec with Inside with DISessionSupport {
 
-  private def withDiChildSession(childDesign: Design)(testCode: Session => Any) {
+  private def withDiChildSession(childDesign: Design)(testCode: Session => Any): Unit = {
     diSession.withChildSession(childDesign) { childSession =>
       testCode(childSession)
     }
