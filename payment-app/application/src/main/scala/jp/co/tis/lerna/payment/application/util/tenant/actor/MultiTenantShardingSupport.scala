@@ -39,7 +39,9 @@ object MultiTenantShardingSupport {
       s"The entityId must be able to be split in exactly 2 with the delimiter [${delimiter.toString}]",
     )
 
-    val Array(encodedTenantId, encodedOriginalEntityId) = entityId.split(delimiter)
+    val (encodedTenantId, encodedOriginalEntityId) = (entityId.split(delimiter): @unchecked) match {
+      case Array(_1, _2) => (_1, _2) // `match may not be exhaustive.` 警告対策
+    }
 
     val tenant           = AppTenant.withId(decode(encodedTenantId))
     val originalEntityId = decode(encodedOriginalEntityId)
