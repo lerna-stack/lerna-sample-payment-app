@@ -186,6 +186,7 @@ lazy val `application` = (project in file("payment-app/application"))
       Lerna.utilSequence,
       Lerna.utilAkka,
       Lerna.management,
+      AkkaEntityReplication.akkaEntityReplication,
       Airframe.airframe,
       Akka.stream,
       Akka.persistenceTyped,

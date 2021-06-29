@@ -4,6 +4,7 @@ object Dependencies {
 
   object Versions {
     val lerna                    = "2.0.0-80f86b49-SNAPSHOT"
+    val akkaEntityReplication    = "1.0.0+161-58abd134-SNAPSHOT"
     val akka                     = "2.6.12"
     val akkaHttp                 = "10.2.4"
     val akkaPersistenceCassandra = "1.0.1"
@@ -31,6 +32,10 @@ object Dependencies {
     val utilSequence = "com.lerna-stack" %% "lerna-util-sequence" % Versions.lerna
     val validation   = "com.lerna-stack" %% "lerna-validation"    % Versions.lerna
     val wartCore     = "com.lerna-stack" %% "lerna-wart-core"     % Versions.lerna
+  }
+
+  object AkkaEntityReplication {
+    val akkaEntityReplication = "com.lerna-stack" %% "akka-entity-replication" % Versions.akkaEntityReplication
   }
 
   object Akka {
