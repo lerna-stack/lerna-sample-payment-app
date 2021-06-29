@@ -8,7 +8,7 @@ sealed abstract case class TransactionId(value: String) {
 }
 
 object TransactionId {
-  def apply(value: BigInt): TransactionId = new TransactionId("%012d".format(value.longValue())) {}
+  def apply(value: BigInt): TransactionId = new TransactionId("%012d".format(value.longValue)) {}
 
   val maxSequence: BigInt = BigInt("999999999999")
 }

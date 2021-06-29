@@ -10,5 +10,6 @@ trait HasDomainEventTag {
     */
   def numberOfTags: Int
 
-  lazy val domainEventTags: immutable.Seq[String] = Vector.tabulate(numberOfTags)(i => s"$domainEventTagPrefix-$i")
+  lazy val domainEventTags: immutable.Seq[String] =
+    Vector.tabulate(numberOfTags)(i => s"$domainEventTagPrefix-${i.toString}")
 }

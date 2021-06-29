@@ -54,7 +54,7 @@ object IssuingServiceGatewayPaymentCancelSpec {
         scopes: Seq[AuthorizationScope],
     )(implicit appRequestContext: AppRequestContext): Directive1[(CustomerId, ClientId)] = {
       import AuthorizationScope.OSettlementWrite
-      require(scopes.contains(OSettlementWrite), s"scopes($scopes) に ${OSettlementWrite.value} が入っていません")
+      require(scopes.contains(OSettlementWrite), s"scopes(${scopes.toString}) に ${OSettlementWrite.value} が入っていません")
       provide(
         (
           CustomerId("1"),

@@ -23,7 +23,7 @@ lazy val `payment-app` = (project in file("."))
       List(
         organization := "jp.co.tis.lerna.payment",
         version := "1.1.0",
-        scalaVersion := "2.12.13",
+        scalaVersion := "2.13.6",
         scalacOptions ++= Seq(
           "-deprecation",
           "-feature",
@@ -215,6 +215,10 @@ lazy val `read-model` = (project in file("payment-app/read-model"))
       Slick.slick,
       Slick.hikaricp,
       MariaDB.connectorJ,
+    ),
+    scalacOptions ++= Seq(
+      // 自動生成コードの警告を無視
+      "-Wconf:cat=lint-multiarg-infix&src=scala/jp/co/tis/lerna/payment/readmodel/schema/Tables.scala:silent",
     ),
   )
 

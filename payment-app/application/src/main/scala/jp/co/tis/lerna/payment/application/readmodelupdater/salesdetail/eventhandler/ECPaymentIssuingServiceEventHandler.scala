@@ -123,8 +123,8 @@ class ECPaymentIssuingServiceEventHandler(
       case Some(throwable) =>
         val message = s"""ReadModelの更新に失敗しました。
                          |persistenceId: ${envelope.persistenceId},
-                         |sequenceNr: ${envelope.sequenceNr},
-                         |event: ${envelope.event}
+                         |sequenceNr: ${envelope.sequenceNr.toString},
+                         |event: ${envelope.event.toString}
                          |""".stripMargin
         logger.error(throwable, message)
     }
@@ -278,7 +278,7 @@ class ECPaymentIssuingServiceEventHandler(
           walletId = payCredential.walletId,
           customerNumber = payCredential.customerNumber,
           intranid = payResponse.map(_.intranid),
-          originDealId = event.right.map(_.paymentResponse.intranid).toOption,
+          originDealId = event.map(_.paymentResponse.intranid).toOption,
           contractNumber = payCredential.contractNumber,
           pan = payCredential.housePan,
           saleDatetime = Timestamp.valueOf(event.fold(_.systemDate, _.saleDateTime)), // 買上日時
@@ -293,7 +293,7 @@ class ECPaymentIssuingServiceEventHandler(
           errorCode = getError(payResponse.map(_.rErrcode)),
           transactionId = transactionId,
           paymentId = paymentId,
-          originalPaymentId = event.right.map(_.originalRequest.paymentId).toOption,
+          originalPaymentId = event.map(_.originalRequest.paymentId).toOption,
           cashBackTempAmount = None,
           isApplicationExtractable = false,
           customerId = event.fold(_.requestInfo.customerId, _.requestInfo.customerId),
@@ -331,7 +331,7 @@ class ECPaymentIssuingServiceEventHandler(
           // 2件以上（履歴不備）
           // ※ 必ず1件になるように運用する
           logger.error(
-            s"SalesDetail.eventPersistenceId === $eventPersistenceId & saleCancelType === 売上(01) の取得結果が ${results.length} 件です。",
+            s"SalesDetail.eventPersistenceId === $eventPersistenceId & saleCancelType === 売上(01) の取得結果が ${results.length.toString} 件です。",
           )
           None
       }

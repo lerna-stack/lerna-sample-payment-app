@@ -31,7 +31,7 @@ object HealthCheckApplicationImpl {
       def eventSourcedBehavior(): EventSourcedBehavior[TestPersistentActor.Ping, NotUsed, NotUsed] =
         EventSourcedBehavior
           .withEnforcedReplies[TestPersistentActor.Ping, NotUsed, NotUsed](
-            persistenceId = PersistenceId.ofUniqueId(s"dummy-${UUID.randomUUID()}"),
+            persistenceId = PersistenceId.ofUniqueId(s"dummy-${UUID.randomUUID().toString}"),
             emptyState = NotUsed,
             commandHandler = { case (_, ping) => Effect.stop().thenReply(ping.replyTo)(_ => Done) },
             eventHandler = { case (state, _) => state },
@@ -162,7 +162,7 @@ class HealthCheckApplicationImpl(config: Config, tables: Tables, system: ActorSy
         if (result) {
           Done
         } else {
-          throw new IllegalStateException(s"Illegal result: $result")
+          throw new IllegalStateException(s"Illegal result: ${result.toString}")
         }
       }.recover {
         case exception: Exception =>
@@ -184,7 +184,7 @@ class HealthCheckApplicationImpl(config: Config, tables: Tables, system: ActorSy
             val finiteDuration =
               config.getDuration("jp.co.tis.lerna.payment.application.util.health.wait-for-detaching").asScala
 
-            logger.info(s"終了処理のため、ヘルスチェック停止後、切り離されるまで $finiteDuration 待ちます")
+            logger.info(s"終了処理のため、ヘルスチェック停止後、切り離されるまで ${finiteDuration.toString} 待ちます")
             Thread.sleep(finiteDuration.toMillis)
 
             Done

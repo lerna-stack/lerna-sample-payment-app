@@ -34,7 +34,7 @@ object IssuingServiceECPaymentRequest {
           ),
         )
       else
-        Success,
+        Success
     }
 
   @SuppressWarnings(Array("org.wartremover.contrib.warts.MissingOverride"))

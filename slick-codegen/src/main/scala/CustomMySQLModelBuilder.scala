@@ -1,5 +1,4 @@
-/**
-  * Slick からコピーして一部を書き換えたコードです。
+/** Slick からコピーして一部を書き換えたコードです。
   * 詳しい経緯は README を参照してください。
   */
 import slick.jdbc.MySQLProfile

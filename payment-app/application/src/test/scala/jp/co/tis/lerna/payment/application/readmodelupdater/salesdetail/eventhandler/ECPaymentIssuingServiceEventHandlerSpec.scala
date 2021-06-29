@@ -98,15 +98,15 @@ class ECPaymentIssuingServiceEventHandlerSpec
     amountTran = AmountTran(generateUniqueNumber()),
     tranDateTime = LocalDateTime.of(2019, 12, 31, 12, 34, 56),
     transactionId = TransactionId(generateUniqueNumber()),
-    accptrId = s"${generateUniqueNumber()}",
+    accptrId = generateUniqueNumber().toString,
     paymentId = PaymentId(generateUniqueNumber()),
-    terminalId = TerminalId(s"${generateUniqueNumber()}"),
+    terminalId = TerminalId(generateUniqueNumber().toString),
   )
 
   val acquirerReversalRequestParameter = AcquirerReversalRequestParameter(
     transactionId = TransactionId(generateUniqueNumber()),
     paymentId = PaymentId(generateUniqueNumber()),
-    terminalId = TerminalId(s"${generateUniqueNumber()}"),
+    terminalId = TerminalId(generateUniqueNumber().toString),
   )
 
   val eventPersistenceId: String = "dummy-persistence-id"

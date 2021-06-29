@@ -148,14 +148,16 @@ class IssuingServiceGatewayImpl(config: Config)(implicit val system: ActorSystem
           httpResponse.discardEntityBytes()
           val message: SystemFailureMessage = IssuingServiceUnavailable(request.mti.name)
           logger.warn(s"${message.messageId}: ${message.messageContent}")
-          logger.warn(s"Issuing Service からのレスポンスのStatusCodes が ServerError(${httpResponse.status}) のため障害取消します")
+          logger.warn(
+            s"Issuing Service からのレスポンスのStatusCodes が ServerError(${httpResponse.status.toString()}) のため障害取消します",
+          )
           Future.successful(Left(message))
 
         // 上記以外の場合、ワーニングログを出力して「(6) 決済履歴一時登録」処理へ。
         case _ =>
           httpResponse.discardEntityBytes()
           val message: SystemFailureMessage = IssuingServiceServerError(request.mti.name)
-          logger.warn(s"${message.messageId}: ${message.messageContent} ${httpResponse.status}")
+          logger.warn(s"${message.messageId}: ${message.messageContent} ${httpResponse.status.toString()}")
           Future.successful(Left(message))
       }
 
@@ -259,14 +261,14 @@ class IssuingServiceGatewayImpl(config: Config)(implicit val system: ActorSystem
         case _: StatusCodes.ServerError => //500～599
           val message = IssuingServiceUnavailable(transNmFailureCancel)
           logger.warn(s"${message.messageId}: ${message.messageContent}")
-          logger.warn(s"Issuing Service からのレスポンスのStatusCodes が ServerError(${httpResponse.status})")
+          logger.warn(s"Issuing Service からのレスポンスのStatusCodes が ServerError(${httpResponse.status.toString()})")
           throw new BusinessException(message)
 
         // 上記以外の場合、ワーニングログを出力して「(6) 決済履歴一時登録」処理へ。
         case _ =>
           val message: SystemFailureMessage = IssuingServiceServerError(transNmFailureCancel)
           logger.warn(s"${message.messageId}: ${message.messageContent}")
-          logger.warn(s"障害取消に失敗しました(StatusCode == ${httpResponse.status})")
+          logger.warn(s"障害取消に失敗しました(StatusCode == ${httpResponse.status.toString()})")
           message
       }
     }

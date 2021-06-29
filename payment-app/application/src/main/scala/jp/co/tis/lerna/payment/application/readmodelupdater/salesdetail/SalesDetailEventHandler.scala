@@ -87,8 +87,8 @@ trait SalesDetailEventHandler[E <: SalesDetailDomainEvent]
     timestampOption.foreach { timestamp =>
       val nowTimestamp = System.currentTimeMillis()
       val delay: Long  = nowTimestamp - timestamp
-      logger.debug(s"Cassandra書き込み時間: $timestamp , RDB書き込み時間: $nowTimestamp")
-      logger.debug(s"RDBへの書き込み遅延時間: $delay ms")
+      logger.debug(s"Cassandra書き込み時間: ${timestamp.toString} , RDB書き込み時間: ${nowTimestamp.toString}")
+      logger.debug(s"RDBへの書き込み遅延時間: ${delay.toString} ms")
       updateDelayHistogram.record(delay)
     }
   }

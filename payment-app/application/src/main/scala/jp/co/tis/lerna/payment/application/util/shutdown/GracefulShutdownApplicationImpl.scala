@@ -16,7 +16,7 @@ class GracefulShutdownApplicationImpl(
 
     val shardRegionTypeNameSet = clusterSharding.shardTypeNames
 
-    logger.info(s"ShardRegion の GracefulShutdown を開始します(対象: $shardRegionTypeNameSet)")
+    logger.info(s"ShardRegion の GracefulShutdown を開始します(対象: ${shardRegionTypeNameSet.toString})")
 
     for (typeName <- shardRegionTypeNameSet) {
       val shardRegion = clusterSharding.shardRegion(typeName)

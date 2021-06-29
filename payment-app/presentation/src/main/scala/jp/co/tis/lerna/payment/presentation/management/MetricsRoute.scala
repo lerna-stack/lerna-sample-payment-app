@@ -29,7 +29,7 @@ class MetricsRoute(config: Config, metrics: Metrics) extends SprayJsonSupport {
   }
 
   private[this] def extractTenantParameter: Directive1[Option[AppTenant]] =
-    parameter('tenant.?).flatMap {
+    parameter("tenant".?).flatMap {
       case None => provide(None)
       case Some(tenantId) =>
         Try(AppTenant.withId(tenantId)) match {

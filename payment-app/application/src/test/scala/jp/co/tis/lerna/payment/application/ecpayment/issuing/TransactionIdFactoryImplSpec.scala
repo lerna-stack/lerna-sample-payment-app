@@ -40,7 +40,7 @@ class TransactionIdFactoryImplSpec extends ScalaTestWithTypedActorTestKit() with
   "TransactionIdFactory" when {
     "正常系 12桁の数字が取得できる" in {
       val transactionIdFactory = diSession.build[TransactionIdFactory]
-      whenReady(transactionIdFactory.generate) { r =>
+      whenReady(transactionIdFactory.generate()) { r =>
         expect { r === TransactionId(1) }
       }
     }

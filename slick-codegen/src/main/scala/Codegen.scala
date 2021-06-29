@@ -8,7 +8,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.util.{ Failure, Success }
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 @SuppressWarnings(
   Array(
@@ -23,7 +23,7 @@ object Codegen extends App {
 
   val config                         = ConfigFactory.load().getConfig("slick.codegen")
   val dbConfig                       = DatabaseConfig.forConfig[JdbcProfile]("", config)
-  val excludeTableNames: Seq[String] = config.getStringList("excludeTableNames").asScala
+  val excludeTableNames: Seq[String] = config.getStringList("excludeTableNames").asScala.toSeq
   import dbConfig._
 
   val tables = profile.defaultTables.map(_.filterNot { table =>
@@ -33,10 +33,10 @@ object Codegen extends App {
   // fetch data model
   val model = for {
     modelAction <-
-    // HACK カスタマイズした CustomJdbcModelBuilder を使います。詳しい経緯は README を参照してください。
-    // profile.createModel(Option(tables), ignoreInvalidDefaults = false) // you can filter specific tables here
-    new CustomJdbcModelComponentExt(profile.asInstanceOf[MySQLProfile])
-      .createModel(Option(tables), ignoreInvalidDefaults = false)
+      // HACK カスタマイズした CustomJdbcModelBuilder を使います。詳しい経緯は README を参照してください。
+      // profile.createModel(Option(tables), ignoreInvalidDefaults = false) // you can filter specific tables here
+      new CustomJdbcModelComponentExt(profile.asInstanceOf[MySQLProfile])
+        .createModel(Option(tables), ignoreInvalidDefaults = false)
   } yield modelAction
 
   val modelFuture = db.run(model)
@@ -46,13 +46,13 @@ object Codegen extends App {
     .map { model =>
       new SourceCodeGenerator(model) {
 
-        /**
-          * デフォルトからの変更点
+        /** デフォルトからの変更点
           * - slick.collection.heterogeneous.syntax のインポートを除去
           * - slick.model.ForeignKeyAction のインポートを除去
           */
         /** Generates code for the complete model (not wrapped in a package yet)
-      @group Basic customization overrides */
+          *      @group Basic customization overrides
+          */
         override def code = {
           // "import slick.model.ForeignKeyAction\n" +
           (if (tables.exists(table => table.hlistEnabled || table.isMappedToHugeClass)) {
@@ -67,8 +67,7 @@ object Codegen extends App {
           tables.map(_.code.mkString("\n")).mkString("\n\n")
         }
 
-        /**
-          * デフォルトからの変更点
+        /** デフォルトからの変更点
           * - Tables object を生成しない
           * - Schema を未指定（None）に変更
           */
@@ -81,6 +80,7 @@ object Codegen extends App {
            |    "org.wartremover.warts.AsInstanceOf",
            |    "org.wartremover.warts.OptionPartial",
            |    "org.wartremover.warts.Throw",
+           |    "org.wartremover.warts.TraversableOps",
            |    "org.wartremover.contrib.warts.MissingOverride",
            |    "org.wartremover.contrib.warts.SomeApply",
            |    "lerna.warts.NamingDef",
@@ -102,7 +102,7 @@ object Codegen extends App {
               val args = model.name.schema.map(_ => s"""None""") ++ Seq("\"" + model.name.table + "\"")
               s"""
               |class $name(_tableTag: Tag) extends profile.api.Table[$elementType](_tableTag, ${args
-                   .mkString(", ")})$prns {
+                .mkString(", ")})$prns {
               |  ${indent(body.map(_.mkString("\n")).mkString("\n\n"))}
               |}
               """.stripMargin

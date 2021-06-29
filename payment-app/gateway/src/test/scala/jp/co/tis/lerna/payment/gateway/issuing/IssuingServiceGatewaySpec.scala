@@ -92,7 +92,7 @@ class IssuingServiceGatewaySpec
         IssuingServiceMock.`IS:承認売上要求／承認取消要求でBadRequestを返す`,
       )
 
-      whenReady(gateway.requestAuthorization(req).failed) {
+      inside(gateway.requestAuthorization(req).failed.futureValue) {
         case ex: BusinessException =>
           expect(ex.message.messageId === "CODE-007")
           expect(ex.message.messageContent.contains("承認売上送信の際に、HTTPヘッダの内容が不正です。"))
@@ -104,7 +104,7 @@ class IssuingServiceGatewaySpec
         IssuingServiceMock.`IS:承認売上要求でその他のエラーレスポンス(451)`,
       )
 
-      whenReady(gateway.requestAuthorization(req).failed) {
+      inside(gateway.requestAuthorization(req).failed.futureValue) {
         case ex: BusinessException =>
           expect(ex.message.messageId === "CODE-009")
           expect(ex.message.messageContent.contains("承認売上送信の際に、Issuing Service でのエラーが検知されました。エラーコード：-"))
@@ -117,7 +117,7 @@ class IssuingServiceGatewaySpec
         IssuingServiceMock.`IS:承認売上に対する障害取消要求で成功を返す`,
       )
 
-      whenReady(gateway.requestAuthorization(req).failed) {
+      inside(gateway.requestAuthorization(req).failed.futureValue) {
         case ex: BusinessException =>
           expect(ex.message.messageId === "CODE-008")
           expect(ex.message.messageContent.contains("障害取消送信の際に、業務処理にて障害取消が必要なエラーが検知されました。"))
@@ -130,7 +130,7 @@ class IssuingServiceGatewaySpec
         IssuingServiceMock.`IS:承認売上に対する障害取消要求で成功を返す`,
       )
 
-      whenReady(gateway.requestAuthorization(req).failed) {
+      inside(gateway.requestAuthorization(req).failed.futureValue) {
         case ex: BusinessException =>
           expect(ex.message.messageId === "CODE-008")
           expect(ex.message.messageContent.contains("障害取消送信の際に、業務処理にて障害取消が必要なエラーが検知されました。"))
@@ -143,7 +143,7 @@ class IssuingServiceGatewaySpec
         IssuingServiceMock.`IS:承認売上に対する障害取消要求でBadRequestを返す(400)`,
       )
 
-      whenReady(gateway.requestAuthorization(req).failed) {
+      inside(gateway.requestAuthorization(req).failed.futureValue) {
         case ex: BusinessException =>
           expect(ex.message.messageId === "CODE-007")
           expect(ex.message.messageContent.contains("障害取消送信の際に、HTTPヘッダの内容が不正です。"))
@@ -156,7 +156,7 @@ class IssuingServiceGatewaySpec
         IssuingServiceMock.`IS:承認売上に対する障害取消要求でServiceUnavailableを返す(503)`,
       )
 
-      whenReady(gateway.requestAuthorization(req).failed) {
+      inside(gateway.requestAuthorization(req).failed.futureValue) {
         case ex: BusinessException =>
           expect(ex.message.messageId === "CODE-009")
           expect(ex.message.messageContent.contains("障害取消送信の際に、Issuing Service でのエラーが検知されました。"))
@@ -169,7 +169,7 @@ class IssuingServiceGatewaySpec
         IssuingServiceMock.`IS:承認売上に対する障害取消要求でServerErrorを返す(500)`,
       )
 
-      whenReady(gateway.requestAuthorization(req).failed) {
+      inside(gateway.requestAuthorization(req).failed.futureValue) {
         case ex: BusinessException =>
           expect(ex.message.messageId === "CODE-009")
           expect(ex.message.messageContent.contains("障害取消送信の際に、Issuing Service でのエラーが検知されました。"))
@@ -182,7 +182,7 @@ class IssuingServiceGatewaySpec
         IssuingServiceMock.`IS:承認売上に対する障害取消要求でその他のエラーを返す(451)`,
       )
 
-      whenReady(gateway.requestAuthorization(req).failed) {
+      inside(gateway.requestAuthorization(req).failed.futureValue) {
         case ex: BusinessException =>
           expect(ex.message.messageId === "CODE-009")
           expect(ex.message.messageContent.contains("障害取消送信の際に、Issuing Service でのエラーが検知されました。"))
@@ -210,7 +210,7 @@ class IssuingServiceGatewaySpec
         IssuingServiceMock.`IS:承認売上要求／承認取消要求でBadRequestを返す`,
       )
 
-      whenReady(gateway.requestAcquirerReversal(acquirerReversalRequestParameter, originalRequest).failed) {
+      inside(gateway.requestAcquirerReversal(acquirerReversalRequestParameter, originalRequest).failed.futureValue) {
         case ex: BusinessException =>
           expect(ex.message.messageId === "CODE-007")
           expect(ex.message.messageContent.contains("承認取消送信の際に、HTTPヘッダの内容が不正です。"))
@@ -254,12 +254,10 @@ class IssuingServiceGatewaySpec
         IssuingServiceMock.`IS:タイムアウトさせる`,
       )
 
-      whenReady(newGateway.requestAcquirerReversal(acquirerReversalRequestParameter, originalRequest).failed) {
+      inside(newGateway.requestAcquirerReversal(acquirerReversalRequestParameter, originalRequest).failed.futureValue) {
         case ex: BusinessException =>
           expect(ex.message.messageId === "CODE-005")
           expect(ex.message.messageContent.contains("障害取消送信でタイムアウトが発生しました。処理を中断します。"))
-        case _ =>
-          expect(false)
       }
     }
 

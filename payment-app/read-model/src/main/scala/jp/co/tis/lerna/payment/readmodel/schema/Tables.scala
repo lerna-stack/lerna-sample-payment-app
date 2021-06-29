@@ -6,6 +6,7 @@ package jp.co.tis.lerna.payment.readmodel.schema
     "org.wartremover.warts.AsInstanceOf",
     "org.wartremover.warts.OptionPartial",
     "org.wartremover.warts.Throw",
+    "org.wartremover.warts.TraversableOps",
     "org.wartremover.contrib.warts.MissingOverride",
     "org.wartremover.contrib.warts.SomeApply",
     "lerna.warts.NamingDef",
@@ -78,40 +79,37 @@ trait Tables {
   }
 
   /** Table description of table CUSTOMER. Objects of this class serve as prototypes for rows in queries. */
+
   class Customer(_tableTag: Tag) extends profile.api.Table[CustomerRow](_tableTag, None, "CUSTOMER") {
-    def * =
-      (
-        customerId,
-        customerNumber,
-        walletId,
-        insertDate,
-        insertUserId,
-        updateDate,
-        updateUserId,
-        versionNo,
-        logicalDeleteFlag,
-      ) <> (CustomerRow.tupled, CustomerRow.unapply)
+    def * = (
+      customerId,
+      customerNumber,
+      walletId,
+      insertDate,
+      insertUserId,
+      updateDate,
+      updateUserId,
+      versionNo,
+      logicalDeleteFlag,
+    ) <> (CustomerRow.tupled, CustomerRow.unapply)
 
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? =
+    def ? = (
       (
-        (
-          Rep.Some(customerId),
-          customerNumber,
-          walletId,
-          Rep.Some(insertDate),
-          Rep.Some(insertUserId),
-          updateDate,
-          updateUserId,
-          Rep.Some(versionNo),
-          Rep.Some(logicalDeleteFlag),
-        ),
-      ).shaped.<>(
-        { r =>
-          import r._; _1.map(_ => CustomerRow.tupled((_1.get, _2, _3, _4.get, _5.get, _6, _7, _8.get, _9.get)))
-        },
-        (_: Any) => throw new Exception("Inserting into ? projection not supported."),
-      )
+        Rep.Some(customerId),
+        customerNumber,
+        walletId,
+        Rep.Some(insertDate),
+        Rep.Some(insertUserId),
+        updateDate,
+        updateUserId,
+        Rep.Some(versionNo),
+        Rep.Some(logicalDeleteFlag),
+      ),
+    ).shaped.<>(
+      { r => import r._; _1.map(_ => CustomerRow.tupled((_1.get, _2, _3, _4.get, _5.get, _6, _7, _8.get, _9.get))) },
+      (_: Any) => throw new Exception("Inserting into ? projection not supported."),
+    )
 
     /** Database column CUSTOMER_ID SqlType(CHAR), PrimaryKey, Length(32,false) */
     val customerId: Rep[String] = column[String]("CUSTOMER_ID", O.PrimaryKey, O.Length(32, varying = false))
@@ -204,51 +202,51 @@ trait Tables {
   }
 
   /** Table description of table HOUSE_MEMBER_STORE. Objects of this class serve as prototypes for rows in queries. */
+
   class HouseMemberStore(_tableTag: Tag)
       extends profile.api.Table[HouseMemberStoreRow](_tableTag, None, "HOUSE_MEMBER_STORE") {
-    def * =
-      (
-        memberStoreId,
-        memberStoreNameJp,
-        memberStoreNameEn,
-        terminalId,
-        clientId,
-        walletShopId,
-        insertDate,
-        insertUserId,
-        updateDate,
-        updateUserId,
-        versionNo,
-        logicalDeleteFlag,
-      ) <> (HouseMemberStoreRow.tupled, HouseMemberStoreRow.unapply)
+    def * = (
+      memberStoreId,
+      memberStoreNameJp,
+      memberStoreNameEn,
+      terminalId,
+      clientId,
+      walletShopId,
+      insertDate,
+      insertUserId,
+      updateDate,
+      updateUserId,
+      versionNo,
+      logicalDeleteFlag,
+    ) <> (HouseMemberStoreRow.tupled, HouseMemberStoreRow.unapply)
 
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? =
+    def ? = (
       (
-        (
-          Rep.Some(memberStoreId),
-          memberStoreNameJp,
-          memberStoreNameEn,
-          Rep.Some(terminalId),
-          Rep.Some(clientId),
-          Rep.Some(walletShopId),
-          Rep.Some(insertDate),
-          Rep.Some(insertUserId),
-          updateDate,
-          updateUserId,
-          Rep.Some(versionNo),
-          Rep.Some(logicalDeleteFlag),
-        ),
-      ).shaped.<>(
-        { r =>
-          import r._;
-          _1.map(_ =>
-            HouseMemberStoreRow
-              .tupled((_1.get, _2, _3, _4.get, _5.get, _6.get, _7.get, _8.get, _9, _10, _11.get, _12.get)),
-          )
-        },
-        (_: Any) => throw new Exception("Inserting into ? projection not supported."),
-      )
+        Rep.Some(memberStoreId),
+        memberStoreNameJp,
+        memberStoreNameEn,
+        Rep.Some(terminalId),
+        Rep.Some(clientId),
+        Rep.Some(walletShopId),
+        Rep.Some(insertDate),
+        Rep.Some(insertUserId),
+        updateDate,
+        updateUserId,
+        Rep.Some(versionNo),
+        Rep.Some(logicalDeleteFlag),
+      ),
+    ).shaped.<>(
+      { r =>
+        import r._;
+        _1.map(_ =>
+          HouseMemberStoreRow.tupled(
+            (_1.get, _2, _3, _4.get, _5.get, _6.get, _7.get, _8.get, _9, _10, _11.get, _12.get),
+          ),
+        )
+      },
+      (_: Any) => throw new Exception("Inserting into ? projection not supported."),
+    )
 
     /** Database column MEMBER_STORE_ID SqlType(VARCHAR), Length(15,true) */
     val memberStoreId: Rep[String] = column[String]("MEMBER_STORE_ID", O.Length(15, varying = true))
@@ -356,53 +354,53 @@ trait Tables {
   }
 
   /** Table description of table INCENTIVE_MASTER. Objects of this class serve as prototypes for rows in queries. */
+
   class IncentiveMaster(_tableTag: Tag)
       extends profile.api.Table[IncentiveMasterRow](_tableTag, None, "INCENTIVE_MASTER") {
-    def * =
-      (
-        incentiveMasterId,
-        settlementType,
-        incentiveType,
-        incentiveRate,
-        incentiveAmount,
-        incentiveDateFrom,
-        incentiveDateTo,
-        insertDate,
-        insertUserId,
-        updateDate,
-        updateUserId,
-        versionNo,
-        logicalDeleteFlag,
-      ) <> (IncentiveMasterRow.tupled, IncentiveMasterRow.unapply)
+    def * = (
+      incentiveMasterId,
+      settlementType,
+      incentiveType,
+      incentiveRate,
+      incentiveAmount,
+      incentiveDateFrom,
+      incentiveDateTo,
+      insertDate,
+      insertUserId,
+      updateDate,
+      updateUserId,
+      versionNo,
+      logicalDeleteFlag,
+    ) <> (IncentiveMasterRow.tupled, IncentiveMasterRow.unapply)
 
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? =
+    def ? = (
       (
-        (
-          Rep.Some(incentiveMasterId),
-          Rep.Some(settlementType),
-          Rep.Some(incentiveType),
-          incentiveRate,
-          incentiveAmount,
-          Rep.Some(incentiveDateFrom),
-          Rep.Some(incentiveDateTo),
-          Rep.Some(insertDate),
-          Rep.Some(insertUserId),
-          updateDate,
-          updateUserId,
-          Rep.Some(versionNo),
-          Rep.Some(logicalDeleteFlag),
-        ),
-      ).shaped.<>(
-        { r =>
-          import r._;
-          _1.map(_ =>
-            IncentiveMasterRow
-              .tupled((_1.get, _2.get, _3.get, _4, _5, _6.get, _7.get, _8.get, _9.get, _10, _11, _12.get, _13.get)),
-          )
-        },
-        (_: Any) => throw new Exception("Inserting into ? projection not supported."),
-      )
+        Rep.Some(incentiveMasterId),
+        Rep.Some(settlementType),
+        Rep.Some(incentiveType),
+        incentiveRate,
+        incentiveAmount,
+        Rep.Some(incentiveDateFrom),
+        Rep.Some(incentiveDateTo),
+        Rep.Some(insertDate),
+        Rep.Some(insertUserId),
+        updateDate,
+        updateUserId,
+        Rep.Some(versionNo),
+        Rep.Some(logicalDeleteFlag),
+      ),
+    ).shaped.<>(
+      { r =>
+        import r._;
+        _1.map(_ =>
+          IncentiveMasterRow.tupled(
+            (_1.get, _2.get, _3.get, _4, _5, _6.get, _7.get, _8.get, _9.get, _10, _11, _12.get, _13.get),
+          ),
+        )
+      },
+      (_: Any) => throw new Exception("Inserting into ? projection not supported."),
+    )
 
     /** Database column INCENTIVE_MASTER_ID SqlType(DECIMAL), PrimaryKey */
     val incentiveMasterId: Rep[scala.math.BigDecimal] =
@@ -500,44 +498,42 @@ trait Tables {
   }
 
   /** Table description of table ISSUING_SERVICE. Objects of this class serve as prototypes for rows in queries. */
+
   class IssuingService(_tableTag: Tag)
       extends profile.api.Table[IssuingServiceRow](_tableTag, None, "ISSUING_SERVICE") {
-    def * =
+    def * = (
+      contractNumber,
+      housePan,
+      serviceRelationId,
+      digit4byte,
+      insertDate,
+      insertUserId,
+      updateDate,
+      updateUserId,
+      versionNo,
+      logicalDeleteFlag,
+    ) <> (IssuingServiceRow.tupled, IssuingServiceRow.unapply)
+
+    /** Maps whole row to an option. Useful for outer joins. */
+    def ? = (
       (
-        contractNumber,
+        Rep.Some(contractNumber),
         housePan,
         serviceRelationId,
         digit4byte,
-        insertDate,
-        insertUserId,
+        Rep.Some(insertDate),
+        Rep.Some(insertUserId),
         updateDate,
         updateUserId,
-        versionNo,
-        logicalDeleteFlag,
-      ) <> (IssuingServiceRow.tupled, IssuingServiceRow.unapply)
-
-    /** Maps whole row to an option. Useful for outer joins. */
-    def ? =
-      (
-        (
-          Rep.Some(contractNumber),
-          housePan,
-          serviceRelationId,
-          digit4byte,
-          Rep.Some(insertDate),
-          Rep.Some(insertUserId),
-          updateDate,
-          updateUserId,
-          Rep.Some(versionNo),
-          Rep.Some(logicalDeleteFlag),
-        ),
-      ).shaped.<>(
-        { r =>
-          import r._;
-          _1.map(_ => IssuingServiceRow.tupled((_1.get, _2, _3, _4, _5.get, _6.get, _7, _8, _9.get, _10.get)))
-        },
-        (_: Any) => throw new Exception("Inserting into ? projection not supported."),
-      )
+        Rep.Some(versionNo),
+        Rep.Some(logicalDeleteFlag),
+      ),
+    ).shaped.<>(
+      { r =>
+        import r._; _1.map(_ => IssuingServiceRow.tupled((_1.get, _2, _3, _4, _5.get, _6.get, _7, _8, _9.get, _10.get)))
+      },
+      (_: Any) => throw new Exception("Inserting into ? projection not supported."),
+    )
 
     /** Database column CONTRACT_NUMBER SqlType(CHAR), PrimaryKey, Length(10,false) */
     val contractNumber: Rep[String] = column[String]("CONTRACT_NUMBER", O.PrimaryKey, O.Length(10, varying = false))
@@ -709,60 +705,60 @@ trait Tables {
   }
 
   /** Table description of table SALES_DETAIL. Objects of this class serve as prototypes for rows in queries. */
+
   class SalesDetail(_tableTag: Tag) extends profile.api.Table[SalesDetailRow](_tableTag, None, "SALES_DETAIL") {
     def * =
       (walletSettlementId :: settlementType :: walletId :: customerNumber :: dealStatus :: specificDealInfo :: originDealId :: contractNumber :: maskingInfo :: saleDatetime :: dealDate :: saleCancelType :: sendDatetime :: authoriNumber :: amount :: memberStoreId :: memberStorePosId :: memberStoreName :: failureCancelFlag :: errorCode :: dealSerialNumber :: paymentId :: originalPaymentId :: cashBackTempAmount :: cashBackFixedAmount :: applicationExtractFlag :: customerId :: saleExtractedFlag :: eventPersistenceId :: eventSequenceNumber :: insertDate :: insertUserId :: updateDate :: updateUserId :: versionNo :: logicalDeleteFlag :: HNil)
         .mapTo[SalesDetailRow]
 
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? =
-      (Rep.Some(
-        walletSettlementId,
-      ) :: settlementType :: walletId :: customerNumber :: dealStatus :: specificDealInfo :: originDealId :: contractNumber :: maskingInfo :: saleDatetime :: dealDate :: saleCancelType :: sendDatetime :: authoriNumber :: amount :: memberStoreId :: memberStorePosId :: memberStoreName :: failureCancelFlag :: errorCode :: dealSerialNumber :: paymentId :: originalPaymentId :: cashBackTempAmount :: cashBackFixedAmount :: applicationExtractFlag :: customerId :: saleExtractedFlag :: eventPersistenceId :: eventSequenceNumber :: Rep
-        .Some(insertDate) :: Rep.Some(insertUserId) :: updateDate :: updateUserId :: Rep.Some(versionNo) :: Rep.Some(
-        logicalDeleteFlag,
-      ) :: HNil).shaped.<>(
-        r =>
-          SalesDetailRow(
-            r(0).asInstanceOf[Option[scala.math.BigDecimal]].get,
-            r(1).asInstanceOf[Option[String]],
-            r(2).asInstanceOf[Option[String]],
-            r(3).asInstanceOf[Option[String]],
-            r(4).asInstanceOf[Option[String]],
-            r(5).asInstanceOf[Option[String]],
-            r(6).asInstanceOf[Option[String]],
-            r(7).asInstanceOf[Option[String]],
-            r(8).asInstanceOf[Option[String]],
-            r(9).asInstanceOf[Option[java.sql.Timestamp]],
-            r(10).asInstanceOf[Option[java.sql.Timestamp]],
-            r(11).asInstanceOf[Option[String]],
-            r(12).asInstanceOf[Option[java.sql.Timestamp]],
-            r(13).asInstanceOf[Option[scala.math.BigDecimal]],
-            r(14).asInstanceOf[Option[scala.math.BigDecimal]],
-            r(15).asInstanceOf[Option[String]],
-            r(16).asInstanceOf[Option[String]],
-            r(17).asInstanceOf[Option[String]],
-            r(18).asInstanceOf[Option[scala.math.BigDecimal]],
-            r(19).asInstanceOf[Option[String]],
-            r(20).asInstanceOf[Option[String]],
-            r(21).asInstanceOf[Option[String]],
-            r(22).asInstanceOf[Option[String]],
-            r(23).asInstanceOf[Option[scala.math.BigDecimal]],
-            r(24).asInstanceOf[Option[scala.math.BigDecimal]],
-            r(25).asInstanceOf[Option[scala.math.BigDecimal]],
-            r(26).asInstanceOf[Option[String]],
-            r(27).asInstanceOf[Option[scala.math.BigDecimal]],
-            r(28).asInstanceOf[Option[String]],
-            r(29).asInstanceOf[Option[scala.math.BigDecimal]],
-            r(30).asInstanceOf[Option[java.sql.Timestamp]].get,
-            r(31).asInstanceOf[Option[String]].get,
-            r(32).asInstanceOf[Option[java.sql.Timestamp]],
-            r(33).asInstanceOf[Option[String]],
-            r(34).asInstanceOf[Option[scala.math.BigDecimal]].get,
-            r(35).asInstanceOf[Option[scala.math.BigDecimal]].get,
-          ),
-        (_: Any) => throw new Exception("Inserting into ? projection not supported."),
-      )
+    def ? = (Rep.Some(
+      walletSettlementId,
+    ) :: settlementType :: walletId :: customerNumber :: dealStatus :: specificDealInfo :: originDealId :: contractNumber :: maskingInfo :: saleDatetime :: dealDate :: saleCancelType :: sendDatetime :: authoriNumber :: amount :: memberStoreId :: memberStorePosId :: memberStoreName :: failureCancelFlag :: errorCode :: dealSerialNumber :: paymentId :: originalPaymentId :: cashBackTempAmount :: cashBackFixedAmount :: applicationExtractFlag :: customerId :: saleExtractedFlag :: eventPersistenceId :: eventSequenceNumber :: Rep
+      .Some(insertDate) :: Rep.Some(insertUserId) :: updateDate :: updateUserId :: Rep.Some(versionNo) :: Rep.Some(
+      logicalDeleteFlag,
+    ) :: HNil).shaped.<>(
+      r =>
+        SalesDetailRow(
+          r(0).asInstanceOf[Option[scala.math.BigDecimal]].get,
+          r(1).asInstanceOf[Option[String]],
+          r(2).asInstanceOf[Option[String]],
+          r(3).asInstanceOf[Option[String]],
+          r(4).asInstanceOf[Option[String]],
+          r(5).asInstanceOf[Option[String]],
+          r(6).asInstanceOf[Option[String]],
+          r(7).asInstanceOf[Option[String]],
+          r(8).asInstanceOf[Option[String]],
+          r(9).asInstanceOf[Option[java.sql.Timestamp]],
+          r(10).asInstanceOf[Option[java.sql.Timestamp]],
+          r(11).asInstanceOf[Option[String]],
+          r(12).asInstanceOf[Option[java.sql.Timestamp]],
+          r(13).asInstanceOf[Option[scala.math.BigDecimal]],
+          r(14).asInstanceOf[Option[scala.math.BigDecimal]],
+          r(15).asInstanceOf[Option[String]],
+          r(16).asInstanceOf[Option[String]],
+          r(17).asInstanceOf[Option[String]],
+          r(18).asInstanceOf[Option[scala.math.BigDecimal]],
+          r(19).asInstanceOf[Option[String]],
+          r(20).asInstanceOf[Option[String]],
+          r(21).asInstanceOf[Option[String]],
+          r(22).asInstanceOf[Option[String]],
+          r(23).asInstanceOf[Option[scala.math.BigDecimal]],
+          r(24).asInstanceOf[Option[scala.math.BigDecimal]],
+          r(25).asInstanceOf[Option[scala.math.BigDecimal]],
+          r(26).asInstanceOf[Option[String]],
+          r(27).asInstanceOf[Option[scala.math.BigDecimal]],
+          r(28).asInstanceOf[Option[String]],
+          r(29).asInstanceOf[Option[scala.math.BigDecimal]],
+          r(30).asInstanceOf[Option[java.sql.Timestamp]].get,
+          r(31).asInstanceOf[Option[String]].get,
+          r(32).asInstanceOf[Option[java.sql.Timestamp]],
+          r(33).asInstanceOf[Option[String]],
+          r(34).asInstanceOf[Option[scala.math.BigDecimal]].get,
+          r(35).asInstanceOf[Option[scala.math.BigDecimal]].get,
+        ),
+      (_: Any) => throw new Exception("Inserting into ? projection not supported."),
+    )
 
     /** Database column WALLET_SETTLEMENT_ID SqlType(DECIMAL), PrimaryKey */
     val walletSettlementId: Rep[scala.math.BigDecimal] =
@@ -947,42 +943,41 @@ trait Tables {
   }
 
   /** Table description of table SERVICE_RELATION. Objects of this class serve as prototypes for rows in queries. */
+
   class ServiceRelation(_tableTag: Tag)
       extends profile.api.Table[ServiceRelationRow](_tableTag, None, "SERVICE_RELATION") {
-    def * =
-      (
-        serviceRelationId,
-        foreignKeyType,
-        customerId,
-        insertDate,
-        insertUserId,
-        updateDate,
-        updateUserId,
-        versionNo,
-        logicalDeleteFlag,
-      ) <> (ServiceRelationRow.tupled, ServiceRelationRow.unapply)
+    def * = (
+      serviceRelationId,
+      foreignKeyType,
+      customerId,
+      insertDate,
+      insertUserId,
+      updateDate,
+      updateUserId,
+      versionNo,
+      logicalDeleteFlag,
+    ) <> (ServiceRelationRow.tupled, ServiceRelationRow.unapply)
 
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? =
+    def ? = (
       (
-        (
-          Rep.Some(serviceRelationId),
-          Rep.Some(foreignKeyType),
-          Rep.Some(customerId),
-          Rep.Some(insertDate),
-          Rep.Some(insertUserId),
-          updateDate,
-          updateUserId,
-          Rep.Some(versionNo),
-          Rep.Some(logicalDeleteFlag),
-        ),
-      ).shaped.<>(
-        { r =>
-          import r._;
-          _1.map(_ => ServiceRelationRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6, _7, _8.get, _9.get)))
-        },
-        (_: Any) => throw new Exception("Inserting into ? projection not supported."),
-      )
+        Rep.Some(serviceRelationId),
+        Rep.Some(foreignKeyType),
+        Rep.Some(customerId),
+        Rep.Some(insertDate),
+        Rep.Some(insertUserId),
+        updateDate,
+        updateUserId,
+        Rep.Some(versionNo),
+        Rep.Some(logicalDeleteFlag),
+      ),
+    ).shaped.<>(
+      { r =>
+        import r._;
+        _1.map(_ => ServiceRelationRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6, _7, _8.get, _9.get)))
+      },
+      (_: Any) => throw new Exception("Inserting into ? projection not supported."),
+    )
 
     /** Database column SERVICE_RELATION_ID SqlType(DECIMAL), PrimaryKey */
     val serviceRelationId: Rep[scala.math.BigDecimal] =

@@ -54,7 +54,7 @@ object IssuingServiceGatewayPaymentSpec {
         scopes: Seq[AuthorizationScope],
     )(implicit appRequestContext: AppRequestContext): Directive1[(CustomerId, ClientId)] = {
       import AuthorizationScope.OSettlementWrite
-      require(scopes.contains(OSettlementWrite), s"scopes($scopes) に ${OSettlementWrite.value} が入っていません")
+      require(scopes.contains(OSettlementWrite), s"scopes(${scopes.toString}) に ${OSettlementWrite.value} が入っていません")
       provide(
         (
           CustomerId("1"),
@@ -209,7 +209,7 @@ class IssuingServiceGatewayPaymentSpec
         request ~> settlement.route() ~> check {
           rejections.map { rejection =>
             rejection shouldBe a[MalformedRequestContentRejection]
-            rejection match {
+            inside(rejection) {
               case m: MalformedRequestContentRejection =>
                 m.message should ===("Object is missing required member 'orderId'")
             }
@@ -308,7 +308,7 @@ class IssuingServiceGatewayPaymentSpec
         request ~> settlement.route() ~> check {
           rejections.map { rejection =>
             rejection shouldBe a[MalformedRequestContentRejection]
-            rejection match {
+            inside(rejection) {
               case m: MalformedRequestContentRejection =>
                 m.message should ===("Object is missing required member 'amount'")
             }

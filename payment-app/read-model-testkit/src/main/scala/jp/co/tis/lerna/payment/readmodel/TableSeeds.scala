@@ -1,6 +1,5 @@
 package jp.co.tis.lerna.payment.readmodel
 
-import jp.co.tis.lerna.payment.readmodel.schema.Tables
 import jp.co.tis.lerna.payment.readmodel.constant.LogicalDeleteFlag
 import jp.co.tis.lerna.payment.readmodel.schema.Tables
 
