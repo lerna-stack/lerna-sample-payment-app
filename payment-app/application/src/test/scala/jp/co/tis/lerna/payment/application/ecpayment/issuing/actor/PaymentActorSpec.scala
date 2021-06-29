@@ -1,30 +1,26 @@
 package jp.co.tis.lerna.payment.application.ecpayment.issuing.actor
 
 import akka.actor.typed.ActorRef
-import akka.cluster.sharding.typed.scaladsl.{ EntityContext, EntityTypeKey }
 import com.typesafe.config.Config
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model._
-import jp.co.tis.lerna.payment.adapter.ecpayment.model.{ OrderId, WalletShopId }
+import jp.co.tis.lerna.payment.adapter.ecpayment.model.{OrderId, WalletShopId}
 import jp.co.tis.lerna.payment.adapter.issuing.IssuingServiceGateway
-import jp.co.tis.lerna.payment.adapter.issuing.model.{
-  AcquirerReversalRequestParameter,
-  AuthorizationRequestParameter,
-  IssuingServiceResponse,
-}
+import jp.co.tis.lerna.payment.adapter.issuing.model.{AcquirerReversalRequestParameter, AuthorizationRequestParameter, IssuingServiceResponse}
 import jp.co.tis.lerna.payment.adapter.util._
 import jp.co.tis.lerna.payment.adapter.util.exception.BusinessException
-import jp.co.tis.lerna.payment.adapter.wallet.{ ClientId, CustomerId }
+import jp.co.tis.lerna.payment.adapter.wallet.{ClientId, CustomerId}
 import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.PaymentActor._
-import jp.co.tis.lerna.payment.application.ecpayment.issuing.{ PaymentIdFactory, TransactionIdFactory }
+import jp.co.tis.lerna.payment.application.ecpayment.issuing.{PaymentIdFactory, TransactionIdFactory}
 import jp.co.tis.lerna.payment.application.util.tenant.actor.MultiTenantShardingSupportTestHelper
 import jp.co.tis.lerna.payment.readmodel.schema.Tables
-import jp.co.tis.lerna.payment.readmodel.{ JDBCService, JDBCSupport, ReadModelDIDesign }
+import jp.co.tis.lerna.payment.readmodel.{JDBCService, JDBCSupport, ReadModelDIDesign}
 import jp.co.tis.lerna.payment.utility.AppRequestContext
+import lerna.akka.entityreplication.typed.{ReplicatedEntityContext, ReplicatedEntityTypeKey}
 import lerna.testkit.airframe.DISessionSupport
 import lerna.testkit.akka.ScalaTestWithTypedActorTestKit
 import lerna.util.akka.AtLeastOnceDelivery
 import lerna.util.tenant.Tenant
-import lerna.util.time.{ FixedLocalDateTimeFactory, LocalDateTimeFactory }
+import lerna.util.time.{FixedLocalDateTimeFactory, LocalDateTimeFactory}
 import lerna.util.trace.TraceId
 import wvlet.airframe.Design
 
@@ -886,8 +882,8 @@ class PaymentActorSpec
       transactionIdFactory: TransactionIdFactory = transactionIdFactorySuccess,
   )(implicit jdbcService: JDBCService, tables: Tables): ActorRef[Command] =
     spawn {
-      val entityContext = new EntityContext[Command](
-        EntityTypeKey("dummy"),
+      val entityContext = new ReplicatedEntityContext[Command](
+        ReplicatedEntityTypeKey("dummy"),
         entityId = MultiTenantShardingSupportTestHelper.generateEntityId(),
         shard = createTestProbe().ref,
       )
