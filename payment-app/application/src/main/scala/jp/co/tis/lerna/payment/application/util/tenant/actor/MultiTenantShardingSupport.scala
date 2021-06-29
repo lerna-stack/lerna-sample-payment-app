@@ -1,11 +1,11 @@
 package jp.co.tis.lerna.payment.application.util.tenant.actor
 
 import akka.cluster.sharding.ShardRegion.EntityId
-import akka.cluster.sharding.typed.scaladsl.EntityContext
 import jp.co.tis.lerna.payment.utility.tenant.AppTenant
+import lerna.akka.entityreplication.typed.ReplicatedEntityContext
 import lerna.util.lang.Equals._
 
-import java.net.{ URLDecoder, URLEncoder }
+import java.net.{URLDecoder, URLEncoder}
 import java.nio.charset.StandardCharsets
 
 object MultiTenantShardingSupport {
@@ -53,7 +53,7 @@ object MultiTenantShardingSupport {
 /** ClusterSharding で　Entity Actor として使用されるマルチテナント対応 Actor用
   */
 trait MultiTenantShardingSupport[Command] extends MultiTenantSupport {
-  def entityContext: EntityContext[Command]
+  def entityContext: ReplicatedEntityContext[Command]
 
   private[this] val (_tenant, _originalEntityId) =
     MultiTenantShardingSupport.extractTenantAndEntityId(entityContext.entityId)

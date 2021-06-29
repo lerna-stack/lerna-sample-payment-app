@@ -1,51 +1,37 @@
 package jp.co.tis.lerna.payment.application.ecpayment.issuing.actor
 
-import akka.actor.typed.scaladsl.{ ActorContext, Behaviors, TimerScheduler }
-import akka.actor.typed.{ ActorRef, ActorSystem, Behavior }
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
 import akka.cluster.sharding.ShardRegion.EntityId
-import akka.cluster.sharding.typed.scaladsl.{ ClusterSharding, Entity, EntityContext, EntityTypeKey }
-import akka.cluster.sharding.typed.ShardingEnvelope
-import akka.persistence.typed.PersistenceId
-import akka.persistence.typed.scaladsl.{ Effect, EventSourcedBehavior }
 import com.typesafe.config.Config
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model._
-import jp.co.tis.lerna.payment.adapter.ecpayment.model.{ OrderId, WalletShopId }
+import jp.co.tis.lerna.payment.adapter.ecpayment.model.{OrderId, WalletShopId}
 import jp.co.tis.lerna.payment.adapter.issuing.IssuingServiceGateway
-import jp.co.tis.lerna.payment.adapter.issuing.model.{
-  AcquirerReversalRequestParameter,
-  AuthorizationRequestParameter,
-  IssuingServiceResponse,
-}
+import jp.co.tis.lerna.payment.adapter.issuing.model.{AcquirerReversalRequestParameter, AuthorizationRequestParameter, IssuingServiceResponse}
 import jp.co.tis.lerna.payment.adapter.util._
 import jp.co.tis.lerna.payment.adapter.util.exception.BusinessException
-import jp.co.tis.lerna.payment.adapter.wallet.{ ClientId, CustomerId, WalletId }
+import jp.co.tis.lerna.payment.adapter.wallet.{ClientId, CustomerId, WalletId}
 import jp.co.tis.lerna.payment.application.ActorPrefix
-import jp.co.tis.lerna.payment.application.ecpayment.issuing.{
-  IssuingServicePayCredential,
-  PaymentIdFactory,
-  TransactionIdFactory,
-}
-import jp.co.tis.lerna.payment.application.util.tenant.actor.{
-  MultiTenantPersistentSupport,
-  MultiTenantShardingSupport,
-}
+import jp.co.tis.lerna.payment.application.ecpayment.issuing.{IssuingServicePayCredential, PaymentIdFactory, TransactionIdFactory}
+import jp.co.tis.lerna.payment.application.util.tenant.actor.{MultiTenantPersistentSupport, MultiTenantShardingSupport}
 import jp.co.tis.lerna.payment.readmodel.JDBCService
-import jp.co.tis.lerna.payment.readmodel.constant.{ LogicalDeleteFlag, ServiceRelationForeignKeyType }
+import jp.co.tis.lerna.payment.readmodel.constant.{LogicalDeleteFlag, ServiceRelationForeignKeyType}
 import jp.co.tis.lerna.payment.readmodel.schema.Tables
 import jp.co.tis.lerna.payment.utility.AppRequestContext
 import jp.co.tis.lerna.payment.utility.tenant.AppTenant
-import lerna.log.{ AppLogger, AppTypedActorLogging }
+import lerna.akka.entityreplication.typed._
+import lerna.log.{AppLogger, AppTypedActorLogging}
 import lerna.util.akka.AtLeastOnceDelivery
 import lerna.util.lang.Equals._
 import lerna.util.time.JavaDurationConverters._
 import lerna.util.time.LocalDateTimeFactory
-import lerna.util.trace.{ RequestContext, TraceId }
+import lerna.util.trace.{RequestContext, TraceId}
 
 import java.time
 import java.time.LocalDateTime
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-import scala.util.{ Failure, Success }
+import scala.util.{Failure, Success}
 
 /** アクターのコンパニオンオブジェクト
   */
@@ -141,7 +127,7 @@ object PaymentActor extends AppTypedActorLogging {
       paymentIdFactory: PaymentIdFactory,
       context: ActorContext[Command],
       timers: TimerScheduler[Command],
-      entityContext: EntityContext[Command],
+      entityContext: ReplicatedEntityContext[Command],
       logger: AppLogger,
   ) extends MultiTenantShardingSupport[Command]
       with MultiTenantPersistentSupport {
@@ -163,12 +149,12 @@ object PaymentActor extends AppTypedActorLogging {
         paymentIdFactory: PaymentIdFactory,
     )(implicit
         system: ActorSystem[Nothing],
-    ): ActorRef[ShardingEnvelope[Command]] = {
-      val clusterSharding = ClusterSharding(system)
+    ): ActorRef[ReplicationEnvelope[Command]] = {
+      val clusterReplication = ClusterReplication(system)
 
-      val shardRegion: ActorRef[ShardingEnvelope[Command]] =
-        clusterSharding.init(
-          Entity(EntityTypeKey[Command](ActorPrefix.Ec.houseMoney))(createBehavior = entityContext => {
+      val shardRegion: ActorRef[ReplicationEnvelope[Command]] =
+        clusterReplication.init(
+          ReplicatedEntity(ReplicatedEntityTypeKey[Command](ActorPrefix.Ec.houseMoney))(createBehavior = entityContext => {
             PaymentActor(
               gateway,
               jdbcService,
@@ -179,7 +165,11 @@ object PaymentActor extends AppTypedActorLogging {
               entityContext,
             )
           })
-            .withStopMessage(StopActor),
+// TODO: switch data store per tenant
+//            .withRaftJournalPluginId("my.special.raft.journal")
+//            .withRaftSnapshotPluginId("my.special.raft.snapshot-store")
+//            .withRaftSnapshotPluginId("my.special.raft.query")
+//            .withEventSourcedJournalPluginId("my.special.eventsourced.journal")
         )
 
       shardRegion
@@ -193,7 +183,7 @@ object PaymentActor extends AppTypedActorLogging {
       dateTimeFactory: LocalDateTimeFactory,
       transactionIdFactory: TransactionIdFactory,
       paymentIdFactory: PaymentIdFactory,
-      entityContext: EntityContext[Command],
+      entityContext: ReplicatedEntityContext[Command],
   ): Behavior[Command] = {
     Behaviors.setup { context =>
       Behaviors.withTimers { timers =>
@@ -216,18 +206,12 @@ object PaymentActor extends AppTypedActorLogging {
 
           setup.context.setReceiveTimeout(receiveTimeout.asScala, ReceiveTimeout)
 
-          val persistenceId =
-            PersistenceId.of(setup.entityContext.entityTypeKey.name, setup.originalEntityId)
-
-          EventSourcedBehavior
-            .withEnforcedReplies[Command, ECPaymentIssuingServiceEvent, State](
-              persistenceId = persistenceId,
+          ReplicatedEntityBehavior[Command, ECPaymentIssuingServiceEvent, State](
+              entityContext = entityContext,
               emptyState = WaitingForRequest(),
               commandHandler = (state, command) => state.applyCommand(command),
               eventHandler = (state, event) => state._applyEvent(event),
-            )
-            .withJournalPluginId(setup.journalPluginId(setup.context.system.settings.config))
-            .withSnapshotPluginId(setup.snapshotPluginId)
+            ).withStopMessage(StopActor)
         }
       }
     }
@@ -236,12 +220,12 @@ object PaymentActor extends AppTypedActorLogging {
   private val errCodeOk = "00000"
 
   // type alias to reduce boilerplate
-  type ReplyEffect[Event] = akka.persistence.typed.scaladsl.ReplyEffect[Event, State]
+  type Effect[Event] = lerna.akka.entityreplication.typed.Effect[Event, State]
 
   // State
   private[actor] sealed trait State {
     def _applyEvent(event: ECPaymentIssuingServiceEvent)(implicit setup: Setup): State
-    def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect[ECPaymentIssuingServiceEvent]
+    def applyCommand(cmd: Command)(implicit setup: Setup): Effect[ECPaymentIssuingServiceEvent]
   }
 
   private[actor] sealed trait StateBase[Event <: ECPaymentIssuingServiceEvent] extends State {
@@ -253,7 +237,7 @@ object PaymentActor extends AppTypedActorLogging {
       applyEvent(event.asInstanceOf[Event])
 
     def applyEvent(event: Event)(implicit setup: Setup): State
-    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect[Event]
+    override def applyCommand(cmd: Command)(implicit setup: Setup): Effect[Event]
   }
 
   final case class WaitingForRequest() extends StateBase[SettlementAccepted] {
@@ -279,7 +263,7 @@ object PaymentActor extends AppTypedActorLogging {
 
       }
 
-    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect[SettlementAccepted] = cmd match {
+    override def applyCommand(cmd: Command)(implicit setup: Setup): Effect[SettlementAccepted] = cmd match {
       case cancelRequest: Cancel =>
         cancelRequest.accept()
 
@@ -289,8 +273,7 @@ object PaymentActor extends AppTypedActorLogging {
           s"${msg.messageId} ${msg.messageContent} Cancel request id ${cancelRequest.walletShopId.value} is not found!",
         )
 
-        stopSelfSafely()
-        Effect.reply(cancelRequest.replyTo)(SettlementFailureResponse(msg))
+        Effect.passivate().thenReply(cancelRequest.replyTo)(_ => SettlementFailureResponse(msg))
 
       case payRequest: Settle =>
         import payRequest.appRequestContext
@@ -305,7 +288,7 @@ object PaymentActor extends AppTypedActorLogging {
           )
 
         Effect
-          .persist(SettlementAccepted(payRequest, systemTime))
+          .replicate(SettlementAccepted(payRequest, systemTime))
           .thenRun((_: State) => {
             payRequest.accept()
 
@@ -324,7 +307,7 @@ object PaymentActor extends AppTypedActorLogging {
             }
           }).thenNoReply()
 
-      case StopActor               => Effect.stop().thenNoReply()
+      case StopActor               => Effect.stopLocally()
       case ReceiveTimeout          => handleReceiveTimeout()
       case _: ProcessingTimeout    => Effect.unhandled.thenNoReply()
       case _: InnerBusinessCommand => Effect.unhandled.thenNoReply()
@@ -416,7 +399,7 @@ object PaymentActor extends AppTypedActorLogging {
       }
 
     @SuppressWarnings(Array("lerna.warts.CyclomaticComplexity"))
-    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect[SettlingResult] = cmd match {
+    override def applyCommand(cmd: Command)(implicit setup: Setup): Effect[SettlingResult] = cmd match {
       case StopActor =>
         implicit def tenant: AppTenant = setup.tenant // `import setup.tenant` だと型推論がうまく動かないため def で型を明示
         import lerna.util.tenant.TenantComponentLogContext.logContext
@@ -452,9 +435,9 @@ object PaymentActor extends AppTypedActorLogging {
                     // 処理が完了の時点で、たまったPay Commandをunstash
                     // 目的：処理中で受けったPay Commandに対し、同じ処理結果を返すため
                     Effect
-                      .persist(event)
-                      .thenReply(processingContext.replyTo)((_: State) => res)
+                      .replicate(event)
                       .thenUnstashAll()
+                      .thenReply(processingContext.replyTo)((_: State) => res)
                   case errorCode =>
                     // 承認売上送信エラーなし(200) でも エラーコード "00000"以外、エラーにする
                     setup.logger.debug(
@@ -475,9 +458,9 @@ object PaymentActor extends AppTypedActorLogging {
                       )
 
                     Effect
-                      .persist(event)
-                      .thenReply(processingContext.replyTo)((_: State) => SettlementFailureResponse(message))
+                      .replicate(event)
                       .thenUnstashAll()
+                      .thenReply(processingContext.replyTo)((_: State) => SettlementFailureResponse(message))
                 }
 
               case Left(message) =>
@@ -490,9 +473,9 @@ object PaymentActor extends AppTypedActorLogging {
                   systemTime,
                 )
                 Effect
-                  .persist(event)
-                  .thenReply(processingContext.replyTo)((_: State) => SettlementFailureResponse(message))
+                  .replicate(event)
                   .thenUnstashAll()
+                  .thenReply(processingContext.replyTo)((_: State) => SettlementFailureResponse(message))
             }
 
           // Gatewayから何のレスポンスEntity(JSON)もなし
@@ -503,9 +486,9 @@ object PaymentActor extends AppTypedActorLogging {
               systemTime,
             )
             Effect
-              .persist(event)
-              .thenReply(processingContext.replyTo)((_: State) => SettlementFailureResponse(message))
+              .replicate(event)
               .thenUnstashAll()
+              .thenReply(processingContext.replyTo)((_: State) => SettlementFailureResponse(message))
         }
 
       case msg: Settle =>
@@ -517,10 +500,10 @@ object PaymentActor extends AppTypedActorLogging {
         import processingTimeoutMessage.requestContext
         setup.logger.info("処理タイムアウトしました: {}", processingTimeoutMessage)
         Effect
-          .persist(SettlementTimeoutDetected()(requestContext.traceId))
-          .thenRun((_: State) => stopSelfSafely())
-          .thenNoReply()
+          .replicate(SettlementTimeoutDetected()(requestContext.traceId))
+          .thenPassivate()
           .thenUnstashAll()
+          .thenNoReply()
 
       case ReceiveTimeout          => handleReceiveTimeout()
       case _: ProcessingTimeout    => Effect.unhandled.thenNoReply() // 対にならない timeout
@@ -563,14 +546,13 @@ object PaymentActor extends AppTypedActorLogging {
         )
     }
 
-    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect[CancelAccepted] = cmd match {
+    override def applyCommand(cmd: Command)(implicit setup: Setup): Effect[CancelAccepted] = cmd match {
       case msg: Settle =>
         import msg.appRequestContext
         msg.accept()
         setup.logger.info("すでに処理済みのため、前回の処理結果を返します(前回とキーが同じリクエストが来ました)")
 
-        stopSelfSafely()
-        Effect.reply(msg.replyTo)(settlementSuccessResponse)
+        Effect.passivate().thenReply(msg.replyTo)(_ => settlementSuccessResponse)
 
       case msg: Cancel =>
         import msg.appRequestContext
@@ -583,7 +565,7 @@ object PaymentActor extends AppTypedActorLogging {
           )
 
         Effect
-          .persist(
+          .replicate(
             CancelAccepted(
               msg,
               systemTime,
@@ -598,7 +580,7 @@ object PaymentActor extends AppTypedActorLogging {
             }
           }).thenNoReply()
 
-      case StopActor               => Effect.stop().thenNoReply()
+      case StopActor               => Effect.stopLocally()
       case ReceiveTimeout          => handleReceiveTimeout()
       case _: ProcessingTimeout    => Effect.unhandled.thenNoReply()
       case _: InnerBusinessCommand => Effect.unhandled.thenNoReply()
@@ -704,7 +686,7 @@ object PaymentActor extends AppTypedActorLogging {
     }
 
     @SuppressWarnings(Array("lerna.warts.CyclomaticComplexity"))
-    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect[CancelingResult] = cmd match {
+    override def applyCommand(cmd: Command)(implicit setup: Setup): Effect[CancelingResult] = cmd match {
       case StopActor =>
         implicit def tenant: AppTenant = setup.tenant // `import setup.tenant` だと型推論がうまく動かないため def で型を明示
         import lerna.util.tenant.TenantComponentLogContext.logContext
@@ -715,12 +697,12 @@ object PaymentActor extends AppTypedActorLogging {
         import processingTimeoutMessage.requestContext
         setup.logger.info("処理タイムアウトしました: {}", processingTimeoutMessage)
         Effect
-          .persist(
+          .replicate(
             CancelTimeoutDetected()(requestContext.traceId),
           )
-          .thenRun((_: State) => stopSelfSafely())
-          .thenNoReply()
+          .thenPassivate()
           .thenUnstashAll()
+          .thenNoReply()
 
       case cancelResult: CancelResult =>
         setup.timers.cancel(processingTimeoutMessage)
@@ -748,9 +730,9 @@ object PaymentActor extends AppTypedActorLogging {
                     )
 
                     Effect
-                      .persist(event)
-                      .thenReply(processingContext.replyTo)((_: State) => res)
+                      .replicate(event)
                       .thenUnstashAll()
+                      .thenReply(processingContext.replyTo)((_: State) => res)
 
                   case "TW005" => // 取消対象取引が既に取消済
                     val res = SettlementSuccessResponse()
@@ -771,9 +753,9 @@ object PaymentActor extends AppTypedActorLogging {
                     val message = IssuingServiceAlreadyCanceled()
                     setup.logger.debug(s"${message.messageId}: ${message.messageContent}")
                     Effect
-                      .persist(event)
-                      .thenReply(processingContext.replyTo)((_: State) => SettlementFailureResponse(message))
+                      .replicate(event)
                       .thenUnstashAll()
+                      .thenReply(processingContext.replyTo)((_: State) => SettlementFailureResponse(message))
 
                   case errorCode =>
                     setup.logger.debug(
@@ -795,9 +777,9 @@ object PaymentActor extends AppTypedActorLogging {
                         systemDateTime,
                       )
                     Effect
-                      .persist(event)
-                      .thenReply(processingContext.replyTo)((_: State) => SettlementFailureResponse(message))
+                      .replicate(event)
                       .thenUnstashAll()
+                      .thenReply(processingContext.replyTo)((_: State) => SettlementFailureResponse(message))
                 }
 
               case Left(message) =>
@@ -815,9 +797,9 @@ object PaymentActor extends AppTypedActorLogging {
                   )
 
                 Effect
-                  .persist(cancelFailedEvent)
-                  .thenReply(processingContext.replyTo)((_: State) => SettlementFailureResponse(message))
+                  .replicate(cancelFailedEvent)
                   .thenUnstashAll()
+                  .thenReply(processingContext.replyTo)((_: State) => SettlementFailureResponse(message))
             }
 
           case Left(message) =>
@@ -825,9 +807,9 @@ object PaymentActor extends AppTypedActorLogging {
             val cancelFailedEvent =
               CancelAborted()
             Effect
-              .persist(cancelFailedEvent)
-              .thenReply(processingContext.replyTo)((_: State) => SettlementFailureResponse(message))
+              .replicate(cancelFailedEvent)
               .thenUnstashAll()
+              .thenReply(processingContext.replyTo)((_: State) => SettlementFailureResponse(message))
         }
 
       case msg: Cancel =>
@@ -852,7 +834,7 @@ object PaymentActor extends AppTypedActorLogging {
         s"この state(${this.getClass.getName}) では event(${event.getClass.getName}) は作成されない",
       )
 
-    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect[Nothing] = cmd match {
+    override def applyCommand(cmd: Command)(implicit setup: Setup): Effect[Nothing] = cmd match {
       case msg: Cancel =>
         msg.accept()
         val response: SettlementResponse = if (msg.customerId === customerId) {
@@ -862,17 +844,15 @@ object PaymentActor extends AppTypedActorLogging {
         } else {
           SettlementFailureResponse(ForbiddenFailure())
         }
-        stopSelfSafely()
-        Effect.reply(msg.replyTo)(response)
+        Effect.passivate().thenReply(msg.replyTo)(_ => response)
 
-      case StopActor               => Effect.stop().thenNoReply()
+      case StopActor               => Effect.stopLocally()
       case ReceiveTimeout          => handleReceiveTimeout()
       case _: ProcessingTimeout    => Effect.unhandled.thenNoReply()
       case _: InnerBusinessCommand => Effect.unhandled.thenNoReply()
       case command: Settle =>
         val message = ValidationFailure("walletShopId または orderId が不正です")
-        stopSelfSafely()
-        Effect.reply(command.replyTo)(SettlementFailureResponse(message))
+        Effect.passivate().thenReply(command.replyTo)(_ => SettlementFailureResponse(message))
 
     }
   }
@@ -885,7 +865,7 @@ object PaymentActor extends AppTypedActorLogging {
         s"この state(${this.getClass.getName}) では event(${event.getClass.getName}) は作成されない",
       )
 
-    override def applyCommand(cmd: Command)(implicit setup: Setup): ReplyEffect[Nothing] = cmd match {
+    override def applyCommand(cmd: Command)(implicit setup: Setup): Effect[Nothing] = cmd match {
       case msg: Settle =>
         import msg.appRequestContext
         msg.accept()
@@ -894,17 +874,15 @@ object PaymentActor extends AppTypedActorLogging {
         setup.logger.info(
           s"status: failed, msg: ${msg.toString}",
         )
-        stopSelfSafely()
-        Effect.reply(msg.replyTo)(SettlementFailureResponse(message))
+        Effect.passivate().thenReply(msg.replyTo)(_ => SettlementFailureResponse(message))
 
-      case StopActor               => Effect.stop().thenNoReply()
+      case StopActor               => Effect.stopLocally()
       case ReceiveTimeout          => handleReceiveTimeout()
       case _: ProcessingTimeout    => Effect.unhandled.thenNoReply()
       case _: InnerBusinessCommand => Effect.unhandled.thenNoReply()
       case command: Cancel =>
         val message = ValidationFailure("walletShopId または orderId が不正です")
-        stopSelfSafely()
-        Effect.reply(command.replyTo)(SettlementFailureResponse(message))
+        Effect.passivate().thenReply(command.replyTo)(_ => SettlementFailureResponse(message))
 
     }
   }
@@ -1004,14 +982,10 @@ object PaymentActor extends AppTypedActorLogging {
     }
   }
 
-  private def handleReceiveTimeout[Event]()(implicit setup: Setup): ReplyEffect[Event] = {
+  private def handleReceiveTimeout[Event]()(implicit setup: Setup): Effect[Event] = {
     implicit val appRequestContext: AppRequestContext = AppRequestContext(TraceId.unknown, setup.tenant)
     setup.logger.info("Actorの生成から一定時間経過しました。Actorを停止します。")
-    stopSelfSafely()
-    Effect.noReply
+    Effect.passivate().thenNoReply()
   }
 
-  private def stopSelfSafely()(implicit setup: Setup): Unit = {
-    setup.entityContext.shard ! ClusterSharding.Passivate(setup.context.self)
-  }
 }

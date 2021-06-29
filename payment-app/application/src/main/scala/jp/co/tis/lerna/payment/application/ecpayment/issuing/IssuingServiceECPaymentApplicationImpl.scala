@@ -1,7 +1,6 @@
 package jp.co.tis.lerna.payment.application.ecpayment.issuing
 
 import akka.actor.typed.ActorSystem
-import akka.cluster.sharding.typed.ShardingEnvelope
 import akka.util.Timeout
 import com.typesafe.config.Config
 import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.IssuingServiceECPaymentApplication
@@ -9,11 +8,12 @@ import jp.co.tis.lerna.payment.adapter.ecpayment.issuing.model._
 import jp.co.tis.lerna.payment.adapter.issuing.IssuingServiceGateway
 import jp.co.tis.lerna.payment.adapter.util.exception.BusinessException
 import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.PaymentActor
-import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.PaymentActor.{ Cancel, Command, Settle, Sharding }
+import jp.co.tis.lerna.payment.application.ecpayment.issuing.actor.PaymentActor.{Cancel, Command, Settle, Sharding}
 import jp.co.tis.lerna.payment.application.util.tenant.actor.MultiTenantShardingSupport
 import jp.co.tis.lerna.payment.readmodel.JDBCService
 import jp.co.tis.lerna.payment.readmodel.schema.Tables
 import jp.co.tis.lerna.payment.utility.AppRequestContext
+import lerna.akka.entityreplication.typed.ReplicationEnvelope
 import lerna.util.akka.AtLeastOnceDelivery
 import lerna.util.time.JavaDurationConverters._
 import lerna.util.time.LocalDateTimeFactory
@@ -52,7 +52,7 @@ class IssuingServiceECPaymentApplicationImpl(
       paymentParameter: PaymentParameter,
   )(implicit appRequestContext: AppRequestContext): Future[SettlementSuccessResponse] = {
     AtLeastOnceDelivery
-      .askTo[ShardingEnvelope[Command], SettlementResponse](
+      .askTo[ReplicationEnvelope[Command], SettlementResponse](
         destination = shardRegion,
         (replyTo, confirmTo) => {
           val command = Settle(
@@ -70,7 +70,7 @@ class IssuingServiceECPaymentApplicationImpl(
             paymentParameter.orderId,
           )
           val tenantSupportEntityId = MultiTenantShardingSupport.tenantSupportEntityId(entityId)
-          ShardingEnvelope[Command](tenantSupportEntityId, command)
+          ReplicationEnvelope[Command](tenantSupportEntityId, command)
         },
       ).flatMap {
         case successResponse: SettlementSuccessResponse => Future.successful(successResponse)
@@ -82,7 +82,7 @@ class IssuingServiceECPaymentApplicationImpl(
       paymentCancelParameter: PaymentCancelParameter,
   )(implicit appRequestContext: AppRequestContext): Future[SettlementSuccessResponse] = {
     AtLeastOnceDelivery
-      .askTo[ShardingEnvelope[Command], SettlementResponse](
+      .askTo[ReplicationEnvelope[Command], SettlementResponse](
         destination = shardRegion,
         (replyTo, confirmTo) => {
           val command = Cancel(
@@ -99,7 +99,7 @@ class IssuingServiceECPaymentApplicationImpl(
             paymentCancelParameter.orderId,
           )
           val tenantSupportEntityId = MultiTenantShardingSupport.tenantSupportEntityId(entityId)
-          ShardingEnvelope[Command](tenantSupportEntityId, command)
+          ReplicationEnvelope[Command](tenantSupportEntityId, command)
         },
       ).flatMap {
         case successResponse: SettlementSuccessResponse => Future.successful(successResponse)
