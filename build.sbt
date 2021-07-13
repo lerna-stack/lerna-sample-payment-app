@@ -397,7 +397,7 @@ lazy val wartremoverSettings = Def.settings(
 )
 
 lazy val coverageSettings = Def.settings(
-  coverageMinimum := 80,
+  coverageMinimumStmtTotal := 80,
   coverageFailOnMinimum := false,
   // You can exclude classes from being considered for coverage measurement by
   // providing semicolon-separated list of regular expressions.
