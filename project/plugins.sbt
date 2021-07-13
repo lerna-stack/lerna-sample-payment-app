@@ -6,7 +6,7 @@ addSbtPlugin("org.wartremover" % "sbt-wartremover" % "2.4.13")
 
 addSbtPlugin("org.wartremover" % "sbt-wartremover-contrib" % "1.3.1")
 
-addSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.5.1")
+addSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.8.2")
 
 addSbtPlugin("io.gatling" % "gatling-sbt" % "3.0.0")
 
