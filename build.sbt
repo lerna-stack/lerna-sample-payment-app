@@ -445,4 +445,4 @@ fetchGitCommitHash := {
   "git rev-parse HEAD".!!.trim
 }
 
-addCommandAlias("take-test-coverage", "clean;coverage;test:compile;test;coverageReport;coverageAggregate;")
+addCommandAlias("take-test-coverage", "clean;coverage;test:compile;test;coverageAggregate;")
