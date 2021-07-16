@@ -22,7 +22,7 @@ lazy val `payment-app` = (project in file("."))
     inThisBuild(
       List(
         organization := "jp.co.tis.lerna.payment",
-        version := "1.1.0",
+        version := "2021.7.0",
         scalaVersion := "2.13.6",
         scalacOptions ++= Seq(
           "-deprecation",
@@ -53,7 +53,6 @@ lazy val `payment-app` = (project in file("."))
         // forkプロセスのstdoutをこのプロセスのstdout,stderrをこのプロセスのstderrに転送する
         // デフォルトのLoggedOutputでは、airframeやkamonが標準エラーに出力するログが[error]とプリフィクスがつき、紛らわしいためです。
         outputStrategy := Some(StdoutOutput),
-        resolvers += Resolver.sonatypeRepo("snapshots"),
       ),
     ),
     //
