@@ -8,7 +8,8 @@ payment-app に関する注目すべき変更はこのファイルで文書化�
 ## Unreleased
 
 
-## v2021.7.0
+## [v2021.7.0] - 2021-7-16
+[v2021.7.0]: https://github.com/lerna-stack/lerna-sample-payment-app/compare/v1.1.0...v2021.7.0
 
 ### ADDED
 - [README](README.md) に Management APIs の使用方法を記載しました
@@ -28,10 +29,12 @@ payment-app に関する注目すべき変更はこのファイルで文書化�
     -  `Status.Failure(exception)` -> 専用クラス化
     - ※ Response, Event の互換性が崩れる
 
-## v1.1.0
+## [v1.1.0] - 2021-3-30
+[v1.1.0]: https://github.com/lerna-stack/lerna-sample-payment-app/compare/v1.0.0...v1.1.0
 - `Changed` Read Model Updater を分散実行しスループットを向上
     - ※ tag の形式と offset の 保存テーブルが変更になったため、切替前後のeventの処理に注意（切替前のEventに未処理が存在する場合、切替後の処理対象とならない）
 
-## v1.0.0
+## [v1.0.0] - 2020-12-23
+[v1.0.0]: https://github.com/lerna-stack/lerna-sample-payment-app/releases/tag/v1.0.0
 
 - Initial release
