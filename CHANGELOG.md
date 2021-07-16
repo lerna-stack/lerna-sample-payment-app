@@ -13,7 +13,7 @@ TODO: sample の version 体系について検討
 - [README](README.md) に Management APIs の使用方法を記載しました
 
 ### CHANGED
-- `lerna-app-library-2.0.0-6bad8983-SNAPSHOT` に更新しました
+- `lerna-app-library-2.0.0` に更新しました
     - `lerna-management` の更新に伴い、
       次の2つの HTTP APIs は Long 値から Double 値を返すように変更します。
         - `/metrics/rmu/sales_detail/ec_house_money/number_of_singleton`
