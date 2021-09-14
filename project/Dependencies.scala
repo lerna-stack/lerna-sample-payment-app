@@ -16,6 +16,7 @@ object Dependencies {
     val janino                   = "3.0.16"
     val kryo                     = "1.1.5"
     val h2                       = "1.4.200"
+    val wireMock                 = "2.30.1"
     val guava                    = "29.0-jre"
     val sprayJson                = "1.3.5"
     val mariadbConnectorJ        = "2.6.2"
@@ -107,7 +108,7 @@ object Dependencies {
   }
 
   object WireMock {
-    val wireMock = "com.github.tomakehurst" % "wiremock-jre8" % "2.27.2"
+    val wireMock = "com.github.tomakehurst" % "wiremock-jre8" % Versions.wireMock
   }
 
   object Guava {
