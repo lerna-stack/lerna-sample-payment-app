@@ -8,7 +8,7 @@ import akka.Done
 import akka.persistence.query.{ Offset, TimeBasedUUID }
 import akka.projection.eventsourced.EventEnvelope
 import akka.projection.slick.SlickHandler
-import com.datastax.driver.core.utils.UUIDs
+import com.datastax.oss.driver.api.core.uuid.Uuids
 import jp.co.tis.lerna.payment.adapter.util.IllegalIncentiveRate
 import jp.co.tis.lerna.payment.application.readmodelupdater.salesdetail.model.{
   MultipleResultTransaction,
@@ -80,7 +80,7 @@ trait SalesDetailEventHandler[E <: SalesDetailDomainEvent]
   protected def sendDelayTimeMetrics(offset: Offset)(implicit traceId: TraceId): Unit = {
     val timestampOption = offset match {
       case TimeBasedUUID(uuid) =>
-        Try(UUIDs.unixTimestamp(uuid)).toOption
+        Try(Uuids.unixTimestamp(uuid)).toOption
       case _ => None
     }
 
