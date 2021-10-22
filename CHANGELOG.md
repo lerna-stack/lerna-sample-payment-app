@@ -7,6 +7,12 @@ payment-app に関する注目すべき変更はこのファイルで文書化�
 
 ## Unreleased
 
+### CHANGED
+
+- lerna-app-library 2.0.0 から 3.0.0 に更新しました
+- wiremock-jre8 2.27.2 から 2.30.1 に更新しました  
+  バイナリ互換性を維持しやすくするため、lerna-app-library が使用する wiremock-jre8 と同じバージョンとしています。
+
 
 ## [v2021.7.0] - 2021-7-16
 [v2021.7.0]: https://github.com/lerna-stack/lerna-sample-payment-app/compare/v1.1.0...v2021.7.0
