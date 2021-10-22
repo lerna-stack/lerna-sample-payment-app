@@ -7,6 +7,10 @@ payment-app に関する注目すべき変更はこのファイルで文書化�
 
 ## Unreleased
 
+
+## [v2021.10.0] - 2021-10-22
+[v2021.10.0]: https://github.com/lerna-stack/lerna-sample-payment-app/compare/v2021.7.0...v2021.10.0
+
 ### CHANGED
 
 - lerna-app-library 2.0.0 から 3.0.0 に更新しました
