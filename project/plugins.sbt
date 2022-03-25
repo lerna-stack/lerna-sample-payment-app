@@ -11,3 +11,5 @@ addSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.8.2")
 addSbtPlugin("io.gatling" % "gatling-sbt" % "3.0.0")
 
 addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.3.22")
+
+addSbtPlugin("com.dwijnand" % "sbt-dynver" % "4.1.1")

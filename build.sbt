@@ -2,9 +2,6 @@ import Dependencies._
 
 import scala.util.Try
 
-// TODO Remove this snapshot repo after stable version release
-ThisBuild / resolvers += Resolver.sonatypeRepo("snapshots")
-
 lazy val `payment-app` = (project in file("."))
   .enablePlugins(JavaAppPackaging, JavaServerAppPackaging, RpmPlugin, SystemdPlugin)
   .aggregate(
@@ -25,7 +22,6 @@ lazy val `payment-app` = (project in file("."))
     inThisBuild(
       List(
         organization := "jp.co.tis.lerna.payment",
-        version := "2021.10.0",
         scalaVersion := "2.13.6",
         scalacOptions ++= Seq(
           "-deprecation",
