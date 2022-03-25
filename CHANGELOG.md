@@ -5,7 +5,12 @@ payment-app に関する注目すべき変更はこのファイルで文書化�
 このファイルの書き方に関する推奨事項については、[Keep a Changelog](https://keepachangelog.com/ja/1.0.0/) を確認してください。
 [Calendar Versioning — CalVer](https://calver.org/) `YYYY.MM.MICRO` を採用しています。
 
-## Unreleased
+## [Unreleased]
+[Unreleased]: https://github.com/lerna-stack/lerna-sample-payment-app/compare/v2022.3.0...main
+
+
+## [v2022.3.0] - 2022-3-25
+[v2022.3.0]: https://github.com/lerna-stack/lerna-sample-payment-app/compare/v2021.10.0...v2022.3.0
 
 ### CHANGED
 - lerna-app-library 3.0.0 から 3.0.0-6-ca3f2b2b-SNAPSHOT に更新しました
