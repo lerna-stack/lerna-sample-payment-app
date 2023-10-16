@@ -19,6 +19,7 @@ Lernaを使って実装した「決済ゲートウェイ」アプリケーショ
     - [RDBMSアクセス処理実装ガイド](docs/RDBMSアクセス処理実装ガイド.md)
     - [ログ実装ガイド](docs/ログ実装ガイド.md)
     - [外部システムモック実装ガイド](docs/外部システムモック実装ガイド.md)
+    - [ClusterSharding の Entity を実装する際の注意点](docs/projects/application/ClusterShardingのEntityを実装する際の注意点.md)
     - [ReadModelUpdater用タグ付け](docs/projects/application/ReadModelUpdater用タグ付け.md)
 - プロジェクトの運用作業をしたい
     - [RDBMSテーブル定義更新ガイド](docs/RDBMSテーブル定義更新ガイド.md)
