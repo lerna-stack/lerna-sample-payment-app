@@ -8,6 +8,11 @@ payment-app に関する注目すべき変更はこのファイルで文書化�
 ## [Unreleased]
 [Unreleased]: https://github.com/lerna-stack/lerna-sample-payment-app/compare/v2022.3.0...main
 
+### ADDED
+- 実装ガイド「ClusterShardingのEntity実装時の注意点」を追加しました [PR#45](https://github.com/lerna-stack/lerna-sample-payment-app/pull/45)
+
+### CHANGED
+- 「プログラミングスタイルガイド」に Blocking/IO と設定値に関する注意点を記載しました [PR#45](https://github.com/lerna-stack/lerna-sample-payment-app/pull/45)
 
 ## [v2022.3.0] - 2022-3-25
 [v2022.3.0]: https://github.com/lerna-stack/lerna-sample-payment-app/compare/v2021.10.0...v2022.3.0

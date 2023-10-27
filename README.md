@@ -12,14 +12,20 @@ Lernaを使って実装した「決済ゲートウェイ」アプリケーショ
 - プログラムを書きたい/レビューしたい
     - [プログラミングスタイルガイド](./docs/プログラミングスタイルガイド.md)
     - [デバッグガイド](./docs/デバッグガイド.md)
-- 実装方法を知りたい
-    - [サブプロジェクト特有の実装方針や注意点](docs/projects/README.md)
-    - [DIコンポーネント実装ガイド](docs/DIコンポーネント実装ガイド.md)
-    - [バリデーション実装ガイド](docs/バリデーション実装ガイド.md)
-    - [RDBMSアクセス処理実装ガイド](docs/RDBMSアクセス処理実装ガイド.md)
-    - [ログ実装ガイド](docs/ログ実装ガイド.md)
-    - [外部システムモック実装ガイド](docs/外部システムモック実装ガイド.md)
-    - [ReadModelUpdater用タグ付け](docs/projects/application/ReadModelUpdater用タグ付け.md)
+- 実装方法を知りたい 
+    - 共通
+        - [サブプロジェクト特有の実装方針や注意点](docs/projects/README.md)
+        - [DIコンポーネント実装ガイド](docs/DIコンポーネント実装ガイド.md)
+        - [ログ実装ガイド](docs/ログ実装ガイド.md)
+    - Presentation プロジェクト
+        - [バリデーション実装ガイド](docs/バリデーション実装ガイド.md)
+    - Application プロジェクト
+        - [RDBMSアクセス処理実装ガイド](docs/RDBMSアクセス処理実装ガイド.md)
+        - [マルチテナント化された ClusterSharding の実装ガイド](docs/projects/application/マルチテナント化されたClusterShardingの実装ガイド.md)
+        - [ClusterSharding の Entity を実装する際の注意点](docs/projects/application/ClusterShardingのEntityを実装する際の注意点.md)
+        - [ReadModelUpdater 用タグ付け](docs/projects/application/ReadModelUpdater用タグ付け.md)
+    - Gateway プロジェクト
+         - [外部システムモック実装ガイド](docs/外部システムモック実装ガイド.md)
 - プロジェクトの運用作業をしたい
     - [RDBMSテーブル定義更新ガイド](docs/RDBMSテーブル定義更新ガイド.md)
     - [RPM パッケージビルドガイド](docs/RPMパッケージビルドガイド.md)
