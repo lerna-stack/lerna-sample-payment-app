@@ -6,7 +6,10 @@ payment-app に関する注目すべき変更はこのファイルで文書化�
 [Calendar Versioning — CalVer](https://calver.org/) `YYYY.MM.MICRO` を採用しています。
 
 ## [Unreleased]
-[Unreleased]: https://github.com/lerna-stack/lerna-sample-payment-app/compare/v2022.3.0...main
+[Unreleased]: https://github.com/lerna-stack/lerna-sample-payment-app/compare/v2023.12.0...main
+
+## [v2023.12.0] - 2023-12-14
+[v2023.12.0]: https://github.com/lerna-stack/lerna-sample-payment-app/compare/v2022.3.0...v2023.12.0
 
 ### ADDED
 - 実装ガイド「ClusterShardingのEntity実装時の注意点」を追加しました [PR#45](https://github.com/lerna-stack/lerna-sample-payment-app/pull/45)
