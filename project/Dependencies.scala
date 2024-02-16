@@ -14,8 +14,8 @@ object Dependencies {
     val slick                    = "3.3.2"
     val expecty                  = "0.14.1"
     val janino                   = "3.0.16"
-    val akkaKryo                     = "2.5.2"
-    val pekkoKryo = "1.2.0"
+    val akkaKryo                 = "2.5.2"
+    val pekkoKryo                = "1.2.0"
     val h2                       = "1.4.200"
     val wireMock                 = "2.30.1"
     val guava                    = "29.0-jre"
@@ -105,7 +105,7 @@ object Dependencies {
   }
 
   object Kryo {
-    val akkaKryo = "io.altoo" %% "akka-kryo-serialization" % Versions.akkaKryo
+    val akkaKryo  = "io.altoo" %% "akka-kryo-serialization"  % Versions.akkaKryo
     val pekkoKryo = "io.altoo" %% "pekko-kryo-serialization" % Versions.pekkoKryo
   }
 

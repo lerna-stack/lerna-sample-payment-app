@@ -201,7 +201,7 @@ lazy val `application` = (project in file("payment-app/application"))
       Kryo.pekkoKryo,
       SprayJson.sprayJson,
       Akka.actorTestKitTyped % Test,
-      Pekko.actorTestKit % Test,
+      Pekko.actorTestKit     % Test,
       Akka.multiNodeTestKit  % Test,
       Akka.streamTestKit     % Test,
     ),

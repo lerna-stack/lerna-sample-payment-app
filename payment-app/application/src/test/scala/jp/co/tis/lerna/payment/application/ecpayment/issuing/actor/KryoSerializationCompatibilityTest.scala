@@ -3,10 +3,10 @@ package jp.co.tis.lerna.payment.application.ecpayment.issuing.actor
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import jp.co.tis.lerna.payment.utility.scalatest.SpecAssertions
 import org.scalatest.funsuite.AnyFunSuiteLike
-import akka.serialization.{SerializationExtension => AkkaSerializationExtension}
+import akka.serialization.{ SerializationExtension => AkkaSerializationExtension }
 import org.apache.pekko
-import pekko.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit => PekkoScalaTestWithActorTestKit }
-import pekko.serialization.{SerializationExtension => PekkoSerializationExtension}
+import pekko.actor.testkit.typed.scaladsl.{ ScalaTestWithActorTestKit => PekkoScalaTestWithActorTestKit }
+import pekko.serialization.{ SerializationExtension => PekkoSerializationExtension }
 
 import java.nio.charset.StandardCharsets
 
@@ -14,16 +14,16 @@ class KryoSerializationCompatibilityTest
 
 class AkkaSerializationTest extends ScalaTestWithActorTestKit() with SpecAssertions with AnyFunSuiteLike {
 
-  import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
+  import akka.actor.{ Actor, ActorLogging, ActorSystem, Props }
 
   private val akkaSerializationExtension = AkkaSerializationExtension(system)
 
   test("Serialize ActorRef in Akka") {
-    val s = ActorSystem("foobazbar")
+    val s        = ActorSystem("foobazbar")
     val actorRef = s.actorOf(Foo.props(), "foo")
-    val event      = AkkaActorRef(actorRef)
+    val event    = AkkaActorRef(actorRef)
     println(event)
-    val bytes      = akkaSerializationExtension.serialize(event).get
+    val bytes = akkaSerializationExtension.serialize(event).get
     println(bytes.mkString(","))
     val serialized = new String(bytes, StandardCharsets.UTF_8)
     println(serialized)
@@ -46,7 +46,7 @@ class AkkaSerializationTest extends ScalaTestWithActorTestKit() with SpecAsserti
 }
 
 class PekkoSerializationTest extends PekkoScalaTestWithActorTestKit() with SpecAssertions with AnyFunSuiteLike {
-  import pekko.actor.{Actor, ActorLogging, ActorSystem, Props}
+  import pekko.actor.{ Actor, ActorLogging, ActorSystem, Props }
 
   private val pekkoSerializationExtension = PekkoSerializationExtension(system)
 
