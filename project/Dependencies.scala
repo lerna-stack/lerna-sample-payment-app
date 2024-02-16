@@ -14,12 +14,14 @@ object Dependencies {
     val slick                    = "3.3.2"
     val expecty                  = "0.14.1"
     val janino                   = "3.0.16"
-    val kryo                     = "1.1.5"
+    val akkaKryo                     = "2.5.2"
+    val pekkoKryo = "1.2.0"
     val h2                       = "1.4.200"
     val wireMock                 = "2.30.1"
     val guava                    = "29.0-jre"
     val sprayJson                = "1.3.5"
     val mariadbConnectorJ        = "2.6.2"
+    val pekko                    = "1.0.2"
   }
 
   object Lerna {
@@ -47,6 +49,13 @@ object Dependencies {
     val actorTestKitTyped    = "com.typesafe.akka" %% "akka-actor-testkit-typed"    % Versions.akka
     val streamTestKit        = "com.typesafe.akka" %% "akka-stream-testkit"         % Versions.akka
     val multiNodeTestKit     = "com.typesafe.akka" %% "akka-multi-node-testkit"     % Versions.akka
+  }
+
+  object Pekko {
+    val actor                = "org.apache.pekko" %% "pekko-actor-typed"           % Versions.pekko
+    val actorTestKit         = "org.apache.pekko" %% "pekko-actor-testkit-typed"   % Versions.pekko
+    val serializationJackson = "org.apache.pekko" %% "pekko-serialization-jackson" % Versions.pekko
+    val stream               = "org.apache.pekko" %% "pekko-stream"                % Versions.pekko
   }
 
   object AkkaHttp {
@@ -96,7 +105,8 @@ object Dependencies {
   }
 
   object Kryo {
-    val kryo = "io.altoo" %% "akka-kryo-serialization" % Versions.kryo
+    val akkaKryo = "io.altoo" %% "akka-kryo-serialization" % Versions.akkaKryo
+    val pekkoKryo = "io.altoo" %% "pekko-kryo-serialization" % Versions.pekkoKryo
   }
 
   object H2 {
