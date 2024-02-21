@@ -107,7 +107,7 @@ class PekkoSerializationTest extends PekkoScalaTestWithActorTestKit() with SpecA
     val manifest = classOf[TypedActorRefSerialize[Nothing]].getName
     val deserialized = pekkoSerializationExtension.deserialize(serialized, serializerId, manifest).get
     println(deserialized)
-//    expect(deserialized.toString === "TypedActorRefSerialize(Actor[pekko://PekkoSerializationTest/user/foo#383024484])")
+    expect(deserialized.toString === "TypedActorRefSerialize(Actor[pekko://PekkoSerializationTest/user/foo#383024484])")
   }
 
   test("Deserialize ByteString in Pekko") {
@@ -116,7 +116,7 @@ class PekkoSerializationTest extends PekkoScalaTestWithActorTestKit() with SpecA
     val serializerId = serializer.identifier
     println(serializerId)
 
-    // akkacompat.ByteStringSerialize("foo") をakkaでシリアライズしたバイト列
+    // ByteStringSerialize("foo") をakkaでシリアライズしたバイト列
     val serialized: Array[Byte] = Array(1,0,-48,1,106,112,46,99,111,46,116,105,115,46,108,101,114,110,97,46,112,97,121,109,101,110,116,46,97,112,112,108,105,99,97,116,105,111,110,46,101,99,112,97,121,109,101,110,116,46,105,115,115,117,105,110,103,46,97,99,116,111,114,46,66,121,116,101,83,116,114,105,110,103,83,101,114,105,97,108,105,122,101,1,1,1,97,107,107,97,46,117,116,105,108,46,66,121,116,101,83,116,114,105,110,103,36,66,121,116,101,83,116,114,105,110,103,49,-61,1,3,102,111,111)
 
     val manifest = classOf[ByteStringSerialize].getName
