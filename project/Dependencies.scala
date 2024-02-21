@@ -3,8 +3,9 @@ import sbt._
 object Dependencies {
 
   object Versions {
-    val lerna                    = "3.0.1"
-    val akka                     = "2.6.10"
+    val lerna = "3.0.1"
+    val akka  = "2.6.20"
+//    val akka                     = "2.6.10"
     val akkaHttp                 = "10.2.4"
     val akkaPersistenceCassandra = "1.0.1"
     val akkaProjection           = "1.1.0"
@@ -14,14 +15,15 @@ object Dependencies {
     val slick                    = "3.3.2"
     val expecty                  = "0.14.1"
     val janino                   = "3.0.16"
-    val akkaKryo                 = "1.1.5"
-    val pekkoKryo                = "1.2.0"
-    val h2                       = "1.4.200"
-    val wireMock                 = "2.30.1"
-    val guava                    = "29.0-jre"
-    val sprayJson                = "1.3.5"
-    val mariadbConnectorJ        = "2.6.2"
-    val pekko                    = "1.0.2"
+//    val akkaKryo                 = "1.1.5"
+    val akkaKryo          = "2.5.2"
+    val pekkoKryo         = "1.2.0"
+    val h2                = "1.4.200"
+    val wireMock          = "2.30.1"
+    val guava             = "29.0-jre"
+    val sprayJson         = "1.3.5"
+    val mariadbConnectorJ = "2.6.2"
+    val pekko             = "1.0.2"
   }
 
   object Lerna {
@@ -105,8 +107,9 @@ object Dependencies {
   }
 
   object Kryo {
-    val akkaKryo  = "io.altoo" %% "akka-kryo-serialization"  % Versions.akkaKryo
-    val pekkoKryo = "io.altoo" %% "pekko-kryo-serialization" % Versions.pekkoKryo
+    val akkaKryo        = "io.altoo" %% "akka-kryo-serialization"              % Versions.akkaKryo
+    val akkaKryoTyped   = "io.altoo" %% "akka-kryo-serialization-typed"        % Versions.akkaKryo
+    val pekkoKryo       = "io.altoo" %% "pekko-kryo-serialization"             % Versions.pekkoKryo
     val pekkoKryoCompat = "io.altoo" %% "pekko-kryo-serialization-akka-compat" % Versions.pekkoKryo
   }
 
